@@ -10,7 +10,7 @@
 const CURRICULUM = {
   basico: [
     { t: "Cumprimentos e saudacoes", g: "Cumprimentar e responder em situacoes do dia.", k: "greeting people", f: "vocabulario", videos: { japones: "h1F9Uuj45N4" } },
-    { t: "Apresentacao pessoal", g: "Dizer nome, idade e de onde voce e.", k: "introduction handshake", f: "conversacao" },
+    { t: "Apresentacao pessoal", g: "Dizer nome, idade e de onde voce e.", k: "introduction handshake", f: "conversacao", videos: { japones: "S7QCR4JsLv8" } },
     { t: "O alfabeto e os sons", g: "Reconhecer letras e sons essenciais do idioma.", k: "alphabet letters", f: "pronuncia", kana: true, videos: { japones: "dFRJJgAeUB4" } },
     { t: "Sistemas de escrita e leitura (romaji)", g: "Como o idioma se escreve e se le. No japones: romaji, hiragana, katakana e kanji e como se relacionam.", k: "writing system reading", f: "pronuncia", kana: true },
     { t: "Pronuncia: vogais", g: "Produzir as vogais com clareza.", k: "mouth speaking", f: "pronuncia" },
