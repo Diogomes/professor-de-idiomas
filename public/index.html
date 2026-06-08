@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Professor de Idiomas Local</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <img class="brand-logo" src="/assets/gigaverse-logo.png" alt="Gigaverse 3D" />
+          <div>
+            <h1>Gigaverse 3D</h1>
+            <p>Professor local de idiomas</p>
+          </div>
+        </div>
+
+        <div class="brand-card">
+          <img src="/assets/gigaverse-logo.png" alt="" />
+        </div>
+
+        <label class="field">
+          <span>Idioma</span>
+          <select id="language">
+            <option value="japones">Japones</option>
+            <option value="ingles">Ingles</option>
+            <option value="espanhol">Espanhol</option>
+            <option value="frances">Frances</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Nivel</span>
+          <select id="level">
+            <option value="iniciante">Iniciante</option>
+            <option value="basico">Basico</option>
+            <option value="intermediario">Intermediario</option>
+            <option value="avancado">Avancado</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Modo</span>
+          <select id="mode">
+            <option value="aula curta">Aula curta</option>
+            <option value="conversacao guiada">Conversacao</option>
+            <option value="exercicios com correcao">Exercicios</option>
+            <option value="correcao de texto">Correcao</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Voz</span>
+          <select id="voiceGender">
+            <option value="female">Mulher</option>
+            <option value="male">Homem</option>
+          </select>
+        </label>
+
+        <button id="newLesson" class="secondary" type="button">Nova aula</button>
+      </aside>
+
+      <section class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Gigaverse 3D - professor-idiomas</p>
+            <h2>Laboratorio de Idiomas</h2>
+          </div>
+          <span id="status" class="status">Pronto</span>
+        </header>
+
+        <div class="classroom">
+          <section class="lesson-library" aria-label="Planos de aula">
+            <div class="library-head">
+              <div>
+                <p class="eyebrow">Planos guiados</p>
+                <h3>Trilhas de estudo</h3>
+              </div>
+              <div class="level-tabs" role="tablist" aria-label="Niveis">
+                <button class="level-tab active" type="button" data-plan-level="basico">Basico</button>
+                <button class="level-tab" type="button" data-plan-level="intermediario">Intermediario</button>
+                <button class="level-tab" type="button" data-plan-level="avancado">Avancado</button>
+              </div>
+            </div>
+            <div id="lessonPlans" class="lesson-grid"></div>
+          </section>
+
+          <div id="messages" class="messages" aria-live="polite"></div>
+        </div>
+
+        <form id="chatForm" class="composer">
+          <textarea
+            id="messageInput"
+            rows="3"
+            placeholder="Escreva sua pergunta, peca uma aula ou pratique uma frase..."
+          ></textarea>
+          <button id="sendButton" type="submit">Enviar</button>
+        </form>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

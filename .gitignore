@@ -1,0 +1,11 @@
+ollama-portable/
+downloads/
+models/
+.ollama-home/
+node_modules/
+.env
+.env.*
+*.log
+*.tmp
+Thumbs.db
+.DS_Store
