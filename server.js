@@ -7,6 +7,10 @@ const publicDir = path.join(root, "public");
 const port = Number(process.env.PORT || 3000);
 const ollamaUrl = process.env.OLLAMA_URL || "http://127.0.0.1:11434";
 const defaultModel = process.env.MODEL || "professor-idiomas";
+// Modelo base (sem system prompt enviesado) para geracao estruturada: garante
+// que o idioma-alvo escolhido comande a saida. O professor-idiomas tinha um
+// system prompt focado em japones que, num modelo pequeno, ignorava o idioma.
+const structModel = process.env.STRUCT_MODEL || "qwen3:1.7b";
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -388,7 +392,7 @@ async function generateLesson(req, res) {
 
     const prompt = buildLessonPrompt({ language, level, title, goal });
     const result = await callOllamaChat({
-      model,
+      model: model || structModel,
       messages: [{ role: "user", content: prompt }],
       format: "json",
     });
@@ -467,7 +471,7 @@ async function tutorReply(req, res) {
 
     const system = buildTutorPrompt({ language, level, mode });
     const result = await callOllamaChat({
-      model,
+      model: model || structModel,
       messages: [{ role: "system", content: system }, ...messages],
       format: "json",
     });

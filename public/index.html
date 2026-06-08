@@ -18,7 +18,7 @@
         </div>
 
         <label class="field">
-          <span>Idioma</span>
+          <span>1 - Idioma</span>
           <select id="language">
             <option value="japones">Japones</option>
             <option value="ingles">Ingles</option>
@@ -28,22 +28,20 @@
         </label>
 
         <label class="field">
-          <span>Nivel (chat)</span>
-          <select id="level">
-            <option value="iniciante">Iniciante</option>
-            <option value="basico">Basico</option>
-            <option value="intermediario">Intermediario</option>
-            <option value="avancado">Avancado</option>
+          <span>2 - Atividade</span>
+          <select id="activity">
+            <option value="rapida">Aula rapida (IA)</option>
+            <option value="trilha">Trilha completa de aulas</option>
+            <option value="conversa">Conversacao natural</option>
           </select>
         </label>
 
         <label class="field">
-          <span>Modo (chat)</span>
-          <select id="mode">
-            <option value="aula curta">Aula curta</option>
-            <option value="conversacao guiada">Conversacao</option>
-            <option value="exercicios com correcao">Exercicios</option>
-            <option value="correcao de texto">Correcao</option>
+          <span>3 - Nivel</span>
+          <select id="level">
+            <option value="iniciante">Iniciante</option>
+            <option value="intermediario">Intermediario</option>
+            <option value="avancado">Avancado</option>
           </select>
         </label>
 
@@ -60,67 +58,71 @@
           <input id="speechRate" type="range" min="0.5" max="1.1" step="0.05" value="0.9" />
         </label>
 
-        <button id="newLesson" class="secondary" type="button">Aula rapida por IA</button>
-
         <p id="aiStatus" class="ai-status">Verificando IA local...</p>
       </aside>
 
       <section class="workspace">
         <header class="topbar">
           <div>
-            <p class="eyebrow">Gigaverse 3D - professor-idiomas</p>
-            <h2>Laboratorio de Idiomas</h2>
+            <p class="eyebrow" id="activityEyebrow">Gigaverse 3D - professor-idiomas</p>
+            <h2 id="activityTitle">Aula rapida</h2>
           </div>
-          <div class="topbar-right">
-            <nav class="view-tabs" role="tablist" aria-label="Areas">
-              <button class="view-tab active" type="button" data-view="trilha">Trilha de aulas</button>
-              <button class="view-tab" type="button" data-view="chat">Chat / Conversacao</button>
-            </nav>
-            <span id="status" class="status">Pronto</span>
-          </div>
+          <span id="status" class="status">Pronto</span>
         </header>
 
-        <!-- VISAO: TRILHA -->
-        <div id="view-trilha" class="view active">
-          <section class="lesson-library" aria-label="Planos de aula">
+        <!-- ATIVIDADE: AULA RAPIDA (IA) -->
+        <div id="panel-rapida" class="panel active">
+          <div class="quick-head">
+            <div class="quick-row">
+              <input id="quickTopic" type="text" placeholder="Assunto da aula (opcional): ex. no aeroporto, cores, comida..." />
+              <button id="quickGenerate" class="primary-action" type="button">Gerar aula</button>
+              <button id="quickRandom" class="ghost" type="button">Assunto aleatorio</button>
+            </div>
+            <div class="suggestions-chips" id="quickSuggestions"></div>
+          </div>
+          <div id="quickLesson" class="lesson-content scroll-area">
+            <div class="empty-content">
+              <p>Escolha o idioma e o nivel ao lado, digite um assunto (ou use um aleatorio) e clique em <strong>Gerar aula</strong>. A IA cria uma aula curta com vocabulario, audio e exercicios no idioma escolhido.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ATIVIDADE: TRILHA COMPLETA -->
+        <div id="panel-trilha" class="panel">
+          <div class="lesson-library">
             <div class="library-head">
               <div>
-                <p class="eyebrow">Curriculo guiado - 50 aulas por nivel</p>
-                <h3>Trilha de estudo</h3>
-              </div>
-              <div class="level-tabs" role="tablist" aria-label="Niveis">
-                <button class="level-tab active" type="button" data-plan-level="basico">Basico</button>
-                <button class="level-tab" type="button" data-plan-level="intermediario">Intermediario</button>
-                <button class="level-tab" type="button" data-plan-level="avancado">Avancado</button>
+                <p class="eyebrow">Curriculo guiado</p>
+                <h3 id="trilhaTitle">Trilha de estudo</h3>
               </div>
             </div>
-
             <div class="progress-wrap">
               <div class="progress-bar"><span id="progressFill" class="progress-fill"></span></div>
-              <span id="progressLabel" class="progress-label">0 / 50 concluidas</span>
+              <span id="progressLabel" class="progress-label">0 / 0 concluidas</span>
             </div>
-          </section>
-
+          </div>
           <div id="lessonPlans" class="lesson-grid scroll-area"></div>
         </div>
 
-        <!-- VISAO: CHAT -->
-        <div id="view-chat" class="view">
+        <!-- ATIVIDADE: CONVERSACAO NATURAL -->
+        <div id="panel-conversa" class="panel">
+          <div class="conv-bar">
+            <div class="conv-mode" role="tablist" aria-label="Modo de conversa">
+              <button class="conv-tab active" type="button" data-conv="escrita">Escrita</button>
+              <button class="conv-tab" type="button" data-conv="oral">Oral (voz)</button>
+            </div>
+            <span id="convHint" class="conv-hint"></span>
+          </div>
           <div id="messages" class="messages scroll-area" aria-live="polite"></div>
-
           <div class="suggestions-bar">
             <span class="suggestions-label">Sugestoes de assunto</span>
             <div id="topicSuggestions" class="suggestions-chips"></div>
           </div>
-
           <form id="chatForm" class="composer">
-            <textarea
-              id="messageInput"
-              rows="3"
-              placeholder="Escreva sua pergunta, peca uma aula ou pratique uma frase..."
-            ></textarea>
+            <textarea id="messageInput" rows="3" placeholder="Escreva em portugues ou no idioma alvo..."></textarea>
             <div class="composer-actions">
               <button id="sendButton" type="submit">Enviar</button>
+              <button id="micButton" class="ghost" type="button" title="Falar (modo oral)">🎤 Falar</button>
               <button id="translateButton" class="ghost" type="button" title="Traduzir o texto do campo">Traduzir</button>
             </div>
           </form>
@@ -128,7 +130,7 @@
       </section>
     </main>
 
-    <!-- OVERLAY DE AULA -->
+    <!-- OVERLAY DE AULA (trilha) -->
     <div id="lessonOverlay" class="overlay" hidden>
       <div class="overlay-card" role="dialog" aria-modal="true" aria-labelledby="lessonTitle">
         <header class="overlay-head">
@@ -139,12 +141,9 @@
           </div>
           <button id="closeLesson" class="icon-button" type="button" aria-label="Fechar">✕</button>
         </header>
-
         <div class="overlay-body scroll-area">
           <div class="media-row">
-            <figure class="lesson-image">
-              <img id="lessonImage" alt="" />
-            </figure>
+            <figure class="lesson-image"><img id="lessonImage" alt="" /></figure>
             <div class="lesson-video">
               <div id="videoPoster" class="video-poster">
                 <span class="play-icon">▶</span>
@@ -156,13 +155,11 @@
               </div>
             </div>
           </div>
-
           <div class="lesson-content-actions">
             <button id="generateLesson" class="primary-action" type="button">Gerar conteudo com IA</button>
             <button id="practiceChat" class="ghost" type="button">Praticar no chat</button>
             <button id="completeLesson" class="ghost" type="button">Marcar como concluida</button>
           </div>
-
           <div id="lessonContent" class="lesson-content"></div>
         </div>
       </div>

@@ -256,17 +256,80 @@ button:disabled {
   white-space: nowrap;
 }
 
-/* ===== Views ===== */
-.view {
+/* ===== Paineis por atividade ===== */
+.panel {
   display: none;
   min-height: 0;
   grid-template-rows: auto minmax(0, 1fr);
 }
-.view.active {
+.panel.active {
   display: grid;
 }
-#view-chat.view.active {
-  grid-template-rows: minmax(0, 1fr) auto;
+#panel-conversa.panel.active {
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+}
+
+/* Aula rapida */
+.quick-head {
+  display: grid;
+  gap: 10px;
+  padding: 18px 32px 6px;
+}
+.quick-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+#quickTopic {
+  flex: 1;
+  min-width: 220px;
+  min-height: 42px;
+  padding: 0 12px;
+}
+#quickLesson {
+  padding: 16px 32px 28px;
+}
+
+/* Conversacao: barra de modo (escrita/oral) */
+.conv-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 32px 0;
+  flex-wrap: wrap;
+}
+.conv-mode {
+  display: flex;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px;
+  background: rgba(3, 8, 16, 0.7);
+}
+.conv-tab {
+  min-height: 32px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  padding: 0 14px;
+}
+.conv-tab.active {
+  background: rgba(0, 140, 255, 0.2);
+  color: #dff4ff;
+  box-shadow: 0 0 16px rgba(0, 140, 255, 0.25);
+}
+.conv-hint {
+  font-size: 12px;
+  color: var(--muted);
+}
+#micButton.listening {
+  border-color: rgba(255, 122, 138, 0.7);
+  background: rgba(255, 122, 138, 0.18);
+  color: #ffd3d9;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% { box-shadow: 0 0 16px rgba(255, 122, 138, 0.5); }
 }
 
 .scroll-area {

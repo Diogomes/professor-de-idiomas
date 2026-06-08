@@ -6,11 +6,8 @@ const sendButton = document.querySelector("#sendButton");
 const statusEl = document.querySelector("#status");
 const languageEl = document.querySelector("#language");
 const levelEl = document.querySelector("#level");
-const modeEl = document.querySelector("#mode");
-const newLessonButton = document.querySelector("#newLesson");
+const activityEl = document.querySelector("#activity");
 const lessonPlansEl = document.querySelector("#lessonPlans");
-const levelTabs = document.querySelectorAll(".level-tab");
-const viewTabs = document.querySelectorAll(".view-tab");
 const voiceGenderEl = document.querySelector("#voiceGender");
 const speechRateEl = document.querySelector("#speechRate");
 const aiStatusEl = document.querySelector("#aiStatus");
@@ -33,13 +30,42 @@ const completeLessonBtn = document.querySelector("#completeLesson");
 const lessonContentEl = document.querySelector("#lessonContent");
 const topicSuggestionsEl = document.querySelector("#topicSuggestions");
 const translateButton = document.querySelector("#translateButton");
+const micButton = document.querySelector("#micButton");
+
+// Paineis por atividade e controles especificos
+const activityTitleEl = document.querySelector("#activityTitle");
+const activityEyebrowEl = document.querySelector("#activityEyebrow");
+const panels = {
+  rapida: document.querySelector("#panel-rapida"),
+  trilha: document.querySelector("#panel-trilha"),
+  conversa: document.querySelector("#panel-conversa"),
+};
+const quickTopicEl = document.querySelector("#quickTopic");
+const quickGenerateBtn = document.querySelector("#quickGenerate");
+const quickRandomBtn = document.querySelector("#quickRandom");
+const quickSuggestionsEl = document.querySelector("#quickSuggestions");
+const quickLessonEl = document.querySelector("#quickLesson");
+const trilhaTitleEl = document.querySelector("#trilhaTitle");
+const convTabs = document.querySelectorAll(".conv-tab");
+const convHintEl = document.querySelector("#convHint");
 
 // ===== Estado =====
 const history = [];
-let activePlanLevel = "basico";
 let availableVoices = [];
 let currentLesson = null; // { level, index, data }
 let aiAvailable = false;
+let convMode = "escrita"; // "escrita" | "oral"
+let recognition = null; // SpeechRecognition (modo oral)
+let listening = false;
+
+// Nivel da trilha (curriculo usa "basico"; UI usa "iniciante").
+function curriculumLevel() {
+  return levelEl.value === "iniciante" ? "basico" : levelEl.value;
+}
+// Rotulo do nivel para a IA (mantem o termo escolhido pelo usuario).
+function levelLabel() {
+  return levelEl.value;
+}
 
 // Mapa central idioma -> locale/voz (BCP-47). Fonte unica do TTS.
 // "latin": escrita latina (sem necessidade de romanizacao). pt-BR fica
@@ -282,8 +308,8 @@ async function sendMessage(content) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         language: languageEl.value,
-        level: levelEl.value,
-        mode: modeEl.value,
+        level: levelLabel(),
+        mode: convMode === "oral" ? "conversacao oral natural" : "conversacao natural",
         messages: history.slice(-10),
       }),
     });
@@ -298,6 +324,9 @@ async function sendMessage(content) {
     // Guarda no historico um texto legivel (para o modelo manter contexto).
     const recon = [f0(fields)].filter(Boolean).join("");
     history.push({ role: "assistant", content: recon || "(sem conteudo)" });
+
+    // Modo oral: o tutor fala a resposta no idioma-alvo automaticamente.
+    if (convMode === "oral") speakSequence([fields.alvo, fields.pergunta_alvo]);
     statusEl.textContent = "Pronto";
   } catch (error) {
     statusEl.textContent = "Erro";
@@ -323,14 +352,14 @@ function topicLevelKey() {
 }
 
 function startTopic(topic) {
-  switchView("chat");
+  switchActivity("conversa");
   sendMessage(
     `Vamos conversar sobre "${topic}". Comece a conversa: diga uma frase no idioma alvo, mostre a traducao em portugues e me faca uma pergunta simples para eu responder. Mantenha as falas curtas e corrija meus erros.`
   );
 }
 
 function suggestTopicsAI() {
-  switchView("chat");
+  switchActivity("conversa");
   sendMessage(
     "Sugira 5 assuntos de conversa adequados ao meu nivel e me pergunte qual deles eu prefiro praticar agora. Liste os assuntos de forma curta e numerada."
   );
@@ -410,11 +439,14 @@ function toggleCompleted(level, index) {
 }
 
 function renderProgress() {
-  const total = (curriculum[activePlanLevel] || []).length;
-  const done = getCompleted(activePlanLevel).size;
+  const total = (curriculum[curriculumLevel()] || []).length;
+  const done = getCompleted(curriculumLevel()).size;
   const pct = total ? Math.round((done / total) * 100) : 0;
   progressFillEl.style.width = `${pct}%`;
   progressLabelEl.textContent = `${done} / ${total} concluidas`;
+  if (trilhaTitleEl) {
+    trilhaTitleEl.textContent = `Trilha de ${targetConfig().label} - nivel ${levelLabel()}`;
+  }
 }
 
 // ===== Midia =====
@@ -506,8 +538,8 @@ function saveCachedLesson(level, index, data) {
 // ===== Grade do curriculo =====
 function renderLessonPlans() {
   lessonPlansEl.textContent = "";
-  const completed = getCompleted(activePlanLevel);
-  (curriculum[activePlanLevel] || []).forEach((plan, index) => {
+  const completed = getCompleted(curriculumLevel());
+  (curriculum[curriculumLevel()] || []).forEach((plan, index) => {
     const card = document.createElement("article");
     card.className = "lesson-card" + (completed.has(index) ? " done" : "");
 
@@ -521,7 +553,7 @@ function renderLessonPlans() {
       <p>${plan.g}</p>
       <span class="lesson-focus">${plan.f}</span>
     `;
-    card.addEventListener("click", () => openLesson(activePlanLevel, index));
+    card.addEventListener("click", () => openLesson(curriculumLevel(), index));
     lessonPlansEl.appendChild(card);
   });
   renderProgress();
@@ -666,7 +698,9 @@ function answerDisplay(exercise) {
   return parts.join("  /  ");
 }
 
-function renderLessonData(lesson) {
+function renderLessonData(lesson, container) {
+  // Permite renderizar tanto no overlay da trilha quanto no painel de aula rapida.
+  const lessonContentEl = container || document.querySelector("#lessonContent");
   lessonContentEl.textContent = "";
 
   // Tabela de kana (hiragana/katakana) na aula de alfabeto em japones.
@@ -924,7 +958,7 @@ practiceChatBtn.addEventListener("click", () => {
   const plan = curriculum[currentLesson.level][currentLesson.index];
   input.value = `Quero praticar a aula "${plan.t}" de ${languageEl.value} (nivel ${currentLesson.level}). Objetivo: ${plan.g} Conduza uma conversa guiada com correcao.`;
   closeLesson();
-  switchView("chat");
+  switchActivity("conversa");
   input.focus();
 });
 
@@ -944,29 +978,43 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !overlayEl.hidden) closeLesson();
 });
 
-// ===== Navegacao =====
-function switchView(view) {
-  viewTabs.forEach((t) => t.classList.toggle("active", t.dataset.view === view));
-  document.querySelector("#view-trilha").classList.toggle("active", view === "trilha");
-  document.querySelector("#view-chat").classList.toggle("active", view === "chat");
-  if (view === "chat") renderTopics();
-}
-viewTabs.forEach((tab) => tab.addEventListener("click", () => switchView(tab.dataset.view)));
+// ===== Navegacao por Atividade =====
+const ACTIVITY_META = {
+  rapida: { eyebrow: "Atividade - aula rapida", title: "Aula rapida (IA)" },
+  trilha: { eyebrow: "Atividade - trilha completa", title: "Trilha de aulas" },
+  conversa: { eyebrow: "Atividade - conversacao", title: "Conversacao natural" },
+};
 
-levelTabs.forEach((button) => {
-  button.addEventListener("click", () => {
-    activePlanLevel = button.dataset.planLevel;
-    levelTabs.forEach((tab) => tab.classList.toggle("active", tab === button));
-    renderLessonPlans();
-  });
-});
+function switchActivity(activity) {
+  if (!panels[activity]) activity = "rapida";
+  if (activityEl.value !== activity) activityEl.value = activity;
+  Object.entries(panels).forEach(([key, el]) => el.classList.toggle("active", key === activity));
+  const meta = ACTIVITY_META[activity];
+  activityEyebrowEl.textContent = meta.eyebrow;
+  activityTitleEl.textContent = `${meta.title} - ${targetConfig().label}`;
+  if (activity === "trilha") renderLessonPlans();
+  if (activity === "conversa") renderTopics();
+  if (activity === "rapida") renderQuickSuggestions();
+  // Para o reconhecimento de voz ao sair da conversa.
+  if (activity !== "conversa") stopListening();
+}
+
+activityEl.addEventListener("change", () => switchActivity(activityEl.value));
 
 languageEl.addEventListener("change", () => {
   renderLessonPlans();
   renderTopics();
+  renderQuickSuggestions();
+  switchActivity(activityEl.value); // atualiza titulos com o idioma
+  if (recognition) recognition.lang = targetConfig().speechLang;
 });
 
-levelEl.addEventListener("change", renderTopics);
+levelEl.addEventListener("change", () => {
+  renderLessonPlans();
+  renderTopics();
+  renderQuickSuggestions();
+});
+
 translateButton.addEventListener("click", translateInput);
 
 // ===== Chat: submit =====
@@ -978,10 +1026,150 @@ form.addEventListener("submit", (event) => {
   sendMessage(content);
 });
 
-newLessonButton.addEventListener("click", () => {
-  switchView("chat");
-  input.value = `Monte uma aula curta de ${languageEl.value} para nivel ${levelEl.value}.`;
-  input.focus();
+// ===== Aula rapida (IA) =====
+const RANDOM_TOPICS = [
+  "Cumprimentos", "Cores", "Numeros", "Comida favorita", "No aeroporto", "No restaurante",
+  "A familia", "Animais", "O tempo e o clima", "Rotina diaria", "Compras", "Viagem",
+  "Hobbies", "No hotel", "Pedir direcoes", "Profissoes", "Roupas", "Tecnologia",
+];
+
+function renderQuickSuggestions() {
+  if (!quickSuggestionsEl) return;
+  quickSuggestionsEl.textContent = "";
+  RANDOM_TOPICS.slice(0, 8).forEach((topic) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "topic-chip";
+    chip.textContent = topic;
+    chip.addEventListener("click", () => {
+      quickTopicEl.value = topic;
+      generateQuickLesson(topic);
+    });
+    quickSuggestionsEl.appendChild(chip);
+  });
+}
+
+async function generateQuickLesson(topicArg) {
+  const topic = (topicArg || quickTopicEl.value || "").trim() ||
+    RANDOM_TOPICS[Math.floor(performance.now()) % RANDOM_TOPICS.length];
+  quickTopicEl.value = topic;
+  currentLesson = { quick: true, kana: false, data: null };
+
+  quickGenerateBtn.disabled = true;
+  quickGenerateBtn.textContent = "Gerando...";
+  quickLessonEl.innerHTML = `<div class="loading">A IA esta montando uma aula de ${targetConfig().label} (${levelLabel()}) sobre "${topic}"...</div>`;
+  statusEl.textContent = "Pensando";
+
+  try {
+    const res = await fetch("/api/lesson", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        language: languageEl.value,
+        level: levelLabel(),
+        title: topic,
+        goal: `Aula rapida sobre ${topic} no nivel ${levelLabel()}.`,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.lesson) throw new Error(data.error || `HTTP ${res.status}`);
+    renderLessonData(data.lesson, quickLessonEl);
+    statusEl.textContent = "Pronto";
+  } catch (e) {
+    quickLessonEl.innerHTML = `<div class="empty-content error"><p>Nao foi possivel gerar a aula: ${e.message}</p></div>`;
+    statusEl.textContent = "Erro";
+  } finally {
+    quickGenerateBtn.disabled = false;
+    quickGenerateBtn.textContent = "Gerar aula";
+  }
+}
+
+quickGenerateBtn.addEventListener("click", () => generateQuickLesson());
+quickRandomBtn.addEventListener("click", () => {
+  const topic = RANDOM_TOPICS[Math.floor(performance.now()) % RANDOM_TOPICS.length];
+  generateQuickLesson(topic);
+});
+quickTopicEl.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    generateQuickLesson();
+  }
+});
+
+// ===== Conversacao: modo escrita/oral + voz (STT) =====
+function setConvMode(mode) {
+  convMode = mode;
+  convTabs.forEach((t) => t.classList.toggle("active", t.dataset.conv === mode));
+  micButton.style.display = mode === "oral" ? "" : "none";
+  if (mode === "oral") {
+    convHintEl.textContent = isOffline()
+      ? "Modo oral precisa de internet (reconhecimento de voz do navegador)."
+      : "Toque em Falar e diga uma frase no idioma alvo; a IA responde por voz.";
+  } else {
+    convHintEl.textContent = "";
+    stopListening();
+  }
+}
+convTabs.forEach((tab) => tab.addEventListener("click", () => setConvMode(tab.dataset.conv)));
+
+function speechRecognitionCtor() {
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
+function stopListening() {
+  if (recognition && listening) {
+    try {
+      recognition.stop();
+    } catch {
+      /* ignora */
+    }
+  }
+  listening = false;
+  if (micButton) {
+    micButton.classList.remove("listening");
+    micButton.textContent = "🎤 Falar";
+  }
+}
+
+function startListening() {
+  const Ctor = speechRecognitionCtor();
+  if (!Ctor) {
+    addMessage("system", "Reconhecimento de voz nao disponivel neste navegador. Use o modo Escrita ou tente no Chrome.");
+    return;
+  }
+  if (isOffline()) {
+    addMessage("system", "O reconhecimento de voz precisa de internet. Use o modo Escrita offline.");
+    return;
+  }
+  recognition = new Ctor();
+  recognition.lang = targetConfig().speechLang;
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+  recognition.onresult = (event) => {
+    const text = event.results[0][0].transcript;
+    stopListening();
+    if (text && text.trim()) sendMessage(text.trim());
+  };
+  recognition.onerror = (event) => {
+    stopListening();
+    addMessage("system", `Nao consegui captar a voz (${event.error}). Tente de novo ou use o modo Escrita.`);
+  };
+  recognition.onend = () => stopListening();
+  listening = true;
+  micButton.classList.add("listening");
+  micButton.textContent = "🛑 Ouvindo...";
+  statusEl.textContent = "Ouvindo";
+  try {
+    recognition.start();
+  } catch {
+    stopListening();
+  }
+}
+
+micButton.addEventListener("click", () => {
+  if (convMode !== "oral") setConvMode("oral");
+  if (listening) stopListening();
+  else startListening();
 });
 
 // ===== Health / status da IA =====
@@ -1009,11 +1197,17 @@ if ("speechSynthesis" in window) {
   window.speechSynthesis.onvoiceschanged = refreshVoices;
 }
 
-renderLessonPlans();
+renderQuickSuggestions();
 renderTopics();
+setConvMode("escrita");
+switchActivity(activityEl.value || "rapida");
 checkHealth();
+
+// Atualiza o estado online/offline em tempo real (degradacao graciosa).
+window.addEventListener("online", () => { if (convMode === "oral") setConvMode("oral"); });
+window.addEventListener("offline", () => { if (convMode === "oral") setConvMode("oral"); });
 
 addMessage(
   "assistant",
-  "Bem-vindo ao laboratorio de idiomas da Gigaverse 3D. Use a Trilha de aulas para seguir as 50 aulas graduais de cada nivel (com imagem, video, audio e exercicios), ou escolha um assunto sugerido abaixo para comecar uma conversa guiada. Tambem da para escrever em portugues e tocar em Traduzir."
+  "Bem-vindo ao laboratorio de idiomas da Gigaverse 3D. Escolha 1) Idioma, 2) Atividade e 3) Nivel ao lado. Atividades: Aula rapida (IA gera uma aula curta do assunto), Trilha completa (todas as aulas por nivel) e Conversacao natural (por escrito ou por voz). Tudo no idioma selecionado."
 );
