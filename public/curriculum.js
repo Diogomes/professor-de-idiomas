@@ -15,7 +15,7 @@ const CURRICULUM = {
     { t: "Sistemas de escrita e leitura (romaji)", g: "Como o idioma se escreve e se le. No japones: romaji, hiragana, katakana e kanji e como se relacionam.", k: "writing system reading", f: "pronuncia", kana: true },
     { t: "Pronuncia: vogais", g: "Produzir as vogais com clareza.", k: "mouth speaking", f: "pronuncia" },
     { t: "Pronuncia: sons dificeis", g: "Treinar consoantes e sons que nao existem no portugues.", k: "sound waves", f: "pronuncia" },
-    { t: "Numeros de 1 a 10", g: "Contar de 1 ate 10 e reconhecer numeros pequenos.", k: "numbers counting", f: "vocabulario", videos: { japones: "44B8cDeSdSQ" } },
+    { t: "Numeros de 1 a 10", g: "Contar de 1 ate 10 e reconhecer numeros pequenos.", k: "numbers counting", f: "vocabulario", videos: { japones: "I_IGzpziW2A" } },
     { t: "Numeros de 1 a 100", g: "Contar de 1 ate 100 e falar quantidades, idade e telefone.", k: "numbers hundred", f: "vocabulario", videos: { japones: "44B8cDeSdSQ" } },
     { t: "As cores", g: "Nomear cores e descrever objetos.", k: "colors palette", f: "vocabulario" },
     { t: "Dias da semana", g: "Falar sobre a semana e agenda.", k: "weekly calendar", f: "vocabulario" },
