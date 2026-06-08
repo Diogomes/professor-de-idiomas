@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 760" role="img" aria-labelledby="title desc">
+  <title id="title">Pronuncia de vogais</title>
+  <desc id="desc">Imagem didatica com vogais latinas e kana japoneses para aula de pronuncia.</desc>
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#1bb8ff" stop-opacity=".38"/>
+      <stop offset="48%" stop-color="#005dff" stop-opacity=".15"/>
+      <stop offset="100%" stop-color="#06101f" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#102238"/>
+      <stop offset="100%" stop-color="#040912"/>
+    </linearGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f5f8ff"/>
+      <stop offset="45%" stop-color="#9fadbf"/>
+      <stop offset="100%" stop-color="#f1f6ff"/>
+    </linearGradient>
+    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="1280" height="760" fill="#05080d"/>
+  <rect width="1280" height="760" fill="url(#glow)"/>
+  <g opacity=".18" stroke="#3ec5ff" stroke-width="1">
+    <path d="M0 130h1280M0 260h1280M0 390h1280M0 520h1280M0 650h1280"/>
+    <path d="M160 0v760M320 0v760M480 0v760M640 0v760M800 0v760M960 0v760M1120 0v760"/>
+  </g>
+  <rect x="86" y="74" width="1092" height="588" rx="38" fill="url(#panel)" stroke="#188cff" stroke-width="3"/>
+  <rect x="118" y="106" width="1028" height="524" rx="28" fill="#08111f" stroke="#75d9ff" stroke-opacity=".45" stroke-width="2"/>
+  <text x="640" y="190" text-anchor="middle" fill="url(#metal)" font-family="Segoe UI, Arial, sans-serif" font-size="62" font-weight="800">PRONUNCIA: VOGAIS</text>
+  <text x="640" y="244" text-anchor="middle" fill="#9fb8d4" font-family="Segoe UI, Arial, sans-serif" font-size="30">ouca, repita e compare os sons</text>
+  <g transform="translate(178 315)" filter="url(#softGlow)">
+    <g fill="#dff4ff" font-family="Segoe UI, Arial, sans-serif" font-size="78" font-weight="900" text-anchor="middle">
+      <text x="0" y="0">A</text>
+      <text x="230" y="0">I</text>
+      <text x="460" y="0">U</text>
+      <text x="690" y="0">E</text>
+      <text x="920" y="0">O</text>
+    </g>
+    <g fill="#31c5ff" font-family="Yu Gothic, Meiryo, Segoe UI, sans-serif" font-size="66" font-weight="800" text-anchor="middle">
+      <text x="0" y="105">あ</text>
+      <text x="230" y="105">い</text>
+      <text x="460" y="105">う</text>
+      <text x="690" y="105">え</text>
+      <text x="920" y="105">お</text>
+    </g>
+    <g fill="#aebbd0" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="700" text-anchor="middle">
+      <text x="0" y="157">a</text>
+      <text x="230" y="157">i</text>
+      <text x="460" y="157">u</text>
+      <text x="690" y="157">e</text>
+      <text x="920" y="157">o</text>
+    </g>
+  </g>
+  <g transform="translate(260 555)">
+    <path d="M0 0C120 70 300 70 420 0" fill="none" stroke="#2ebcff" stroke-width="16" stroke-linecap="round"/>
+    <path d="M470 0C590 70 770 70 890 0" fill="none" stroke="#2ebcff" stroke-width="16" stroke-linecap="round"/>
+    <circle cx="445" cy="5" r="16" fill="#dff4ff"/>
+  </g>
+  <text x="640" y="705" text-anchor="middle" fill="#d8e1ee" font-family="Segoe UI, Arial, sans-serif" font-size="28" letter-spacing="7">GIGAVERSE 3D - IDIOMAS</text>
+</svg>

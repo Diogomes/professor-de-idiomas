@@ -572,7 +572,13 @@ function openLesson(level, index) {
   const fig = lessonImageEl.parentElement;
   fig.classList.remove("img-fallback");
   fig.dataset.label = plan.t;
-  if (isOffline()) {
+  if (plan.image) {
+    lessonImageEl.src = plan.image;
+    lessonImageEl.onerror = () => {
+      lessonImageEl.removeAttribute("src");
+      fig.classList.add("img-fallback");
+    };
+  } else if (isOffline()) {
     lessonImageEl.removeAttribute("src");
     fig.classList.add("img-fallback");
   } else {
