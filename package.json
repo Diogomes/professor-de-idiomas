@@ -1,6 +1,6 @@
 {
   "name": "professor-de-idiomas",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Professor de idiomas local: trilha de aulas, chat com IA local, audio, video e exercicios. Funciona offline apos a primeira execucao.",
   "author": "Gigaverse 3D",
   "license": "MIT",
