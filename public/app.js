@@ -70,12 +70,14 @@ function levelLabel() {
 // Mapa central idioma -> locale/voz (BCP-47). Fonte unica do TTS.
 // "latin": escrita latina (sem necessidade de romanizacao). pt-BR fica
 // reservado caso um dia se queira ler explicacoes (hoje, nao se le PT).
+// "imgTag": pais/cultura usado nas imagens (LoremFlickr) para dar contexto
+// cultural a cada idioma.
 const languageConfig = {
-  japones: { speechLang: "ja-JP", label: "Japones", code: "ja", latin: false },
-  ingles: { speechLang: "en-US", label: "Ingles", code: "en", latin: true },
-  espanhol: { speechLang: "es-ES", label: "Espanhol", code: "es", latin: true },
-  frances: { speechLang: "fr-FR", label: "Frances", code: "fr", latin: true },
-  portugues: { speechLang: "pt-BR", label: "Portugues", code: "pt", latin: true },
+  japones: { speechLang: "ja-JP", label: "Japones", code: "ja", latin: false, imgTag: "japan" },
+  ingles: { speechLang: "en-US", label: "Ingles", code: "en", latin: true, imgTag: "england" },
+  espanhol: { speechLang: "es-ES", label: "Espanhol", code: "es", latin: true, imgTag: "spain" },
+  frances: { speechLang: "fr-FR", label: "Frances", code: "fr", latin: true, imgTag: "france" },
+  portugues: { speechLang: "pt-BR", label: "Portugues", code: "pt", latin: true, imgTag: "brazil" },
 };
 
 function targetConfig() {
@@ -454,6 +456,24 @@ function imageUrl(keyword, lockId) {
   const tags = keyword.trim().split(/\s+/).join(",");
   return `https://loremflickr.com/640/380/${encodeURIComponent(tags)}?lock=${lockId}`;
 }
+// Lock numerico estavel por idioma+nivel+aula (muda a imagem ao trocar idioma).
+function imageLock(level, index) {
+  const s = `${languageEl.value}-${level}-${index}`;
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h % 100000;
+}
+// Imagem relacionada ao tema da aula E a cultura do idioma (tag de pais).
+function topicImageUrl(plan, level, index, w = 320, h = 180) {
+  const culture = targetConfig().imgTag || "";
+  const tags = [plan.k, culture]
+    .filter(Boolean)
+    .join(" ")
+    .trim()
+    .split(/\s+/)
+    .join(",");
+  return `https://loremflickr.com/${w}/${h}/${encodeURIComponent(tags)}?lock=${imageLock(level, index)}`;
+}
 function youtubeSearchUrl(keyword) {
   const query = `${languageConfig[languageEl.value].label} ${keyword} aula para iniciantes`;
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
@@ -545,6 +565,7 @@ function renderLessonPlans() {
 
     const num = index + 1;
     card.innerHTML = `
+      <figure class="card-thumb" data-label="${attr(plan.t)}"></figure>
       <div class="card-top">
         <span class="lesson-number">${num}</span>
         <span class="lesson-check" aria-hidden="true">✓</span>
@@ -553,6 +574,23 @@ function renderLessonPlans() {
       <p>${plan.g}</p>
       <span class="lesson-focus">${plan.f}</span>
     `;
+
+    // Imagem do tema + cultura do idioma (com fallback offline/erro).
+    const thumb = card.querySelector(".card-thumb");
+    if (isOffline()) {
+      thumb.classList.add("thumb-fallback");
+    } else {
+      const img = document.createElement("img");
+      img.alt = "";
+      img.loading = "lazy";
+      img.src = topicImageUrl(plan, curriculumLevel(), index);
+      img.addEventListener("error", () => {
+        thumb.classList.add("thumb-fallback");
+        img.remove();
+      });
+      thumb.appendChild(img);
+    }
+
     card.addEventListener("click", () => openLesson(curriculumLevel(), index));
     lessonPlansEl.appendChild(card);
   });
@@ -582,7 +620,7 @@ function openLesson(level, index) {
     lessonImageEl.removeAttribute("src");
     fig.classList.add("img-fallback");
   } else {
-    lessonImageEl.src = imageUrl(plan.k, level.charCodeAt(0) * 100 + index);
+    lessonImageEl.src = topicImageUrl(plan, level, index, 640, 380);
     lessonImageEl.onerror = () => {
       lessonImageEl.removeAttribute("src");
       fig.classList.add("img-fallback");
