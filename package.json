@@ -19,6 +19,7 @@
   "build": {
     "appId": "com.gigaverse.professoridiomas",
     "productName": "Professor de Idiomas",
+    "npmRebuild": false,
     "files": [
       "electron/**/*",
       "public/**/*",
@@ -29,8 +30,7 @@
     ],
     "win": {
       "target": [
-        "nsis",
-        "portable"
+        "nsis"
       ],
       "artifactName": "ProfessorDeIdiomas-${version}-${arch}.${ext}"
     },

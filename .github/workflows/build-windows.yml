@@ -29,9 +29,12 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
-      - name: Gerar executavel (NSIS + portable)
-        run: npm run dist:win
+      - name: Gerar executavel (NSIS)
+        run: npm run dist:win -- --publish never
         env:
+          # Autentica os downloads das ferramentas do electron-builder (evita
+          # rate-limit 403 do GitHub) e a publicacao posterior.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Sem assinatura de codigo (sem certificado configurado).
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
