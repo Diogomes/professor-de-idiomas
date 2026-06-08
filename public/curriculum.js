@@ -11,7 +11,7 @@ const CURRICULUM = {
   basico: [
     { t: "Cumprimentos e saudacoes", g: "Cumprimentar e responder em situacoes do dia.", k: "greeting people", f: "vocabulario" },
     { t: "Apresentacao pessoal", g: "Dizer nome, idade e de onde voce e.", k: "introduction handshake", f: "conversacao" },
-    { t: "O alfabeto e os sons", g: "Reconhecer letras e sons essenciais do idioma.", k: "alphabet letters", f: "pronuncia" },
+    { t: "O alfabeto e os sons", g: "Reconhecer letras e sons essenciais do idioma.", k: "alphabet letters", f: "pronuncia", kana: true, videos: { japones: "dFRJJgAeUB4" } },
     { t: "Pronuncia: vogais", g: "Produzir as vogais com clareza.", k: "mouth speaking", f: "pronuncia" },
     { t: "Pronuncia: sons dificeis", g: "Treinar consoantes e sons que nao existem no portugues.", k: "sound waves", f: "pronuncia" },
     { t: "Numeros de 0 a 10", g: "Contar e reconhecer numeros pequenos.", k: "numbers counting", f: "vocabulario" },
