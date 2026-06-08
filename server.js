@@ -100,6 +100,108 @@ function extractJson(text) {
   }
 }
 
+function japaneseNumberReading(n) {
+  const base = {
+    1: ["いち", "ichi"],
+    2: ["に", "ni"],
+    3: ["さん", "san"],
+    4: ["よん", "yon"],
+    5: ["ご", "go"],
+    6: ["ろく", "roku"],
+    7: ["なな", "nana"],
+    8: ["はち", "hachi"],
+    9: ["きゅう", "kyuu"],
+    10: ["じゅう", "juu"],
+    100: ["ひゃく", "hyaku"],
+  };
+
+  if (base[n]) return base[n];
+  if (n < 20) {
+    const [kana, romaji] = base[n - 10];
+    return [`じゅう${kana}`, `juu ${romaji}`];
+  }
+
+  const tens = Math.floor(n / 10);
+  const ones = n % 10;
+  const [tensKana, tensRomaji] = base[tens];
+  const prefixKana = tens === 1 ? "" : tensKana;
+  const prefixRomaji = tens === 1 ? "" : `${tensRomaji} `;
+  if (ones === 0) return [`${prefixKana}じゅう`, `${prefixRomaji}juu`.trim()];
+
+  const [onesKana, onesRomaji] = base[ones];
+  return [`${prefixKana}じゅう${onesKana}`, `${prefixRomaji}juu ${onesRomaji}`.trim()];
+}
+
+function buildJapaneseNumbersLesson() {
+  const vocabulary = Array.from({ length: 100 }, (_, index) => {
+    const number = index + 1;
+    const [kana, romaji] = japaneseNumberReading(number);
+    return {
+      term: String(number),
+      kana,
+      phonetic: romaji,
+      script: "numero + hiragana",
+      translation: String(number),
+      example: `${number}です。`,
+      exampleKana: `${kana}です。`,
+      exampleRomaji: `${romaji} desu.`,
+      exampleTranslation: `E ${number}.`,
+    };
+  });
+
+  return {
+    intro:
+      "Nesta aula voce vai aprender os numeros japoneses de 1 a 100, com leitura em hiragana, romaji e audio para praticar.",
+    writing:
+      "No dia a dia, numeros podem aparecer como algarismos arabicos (1, 2, 3), kanji (一, 二, 三) ou kana para estudo de leitura. Aqui mostramos o numero em algarismo, a leitura em hiragana e o romaji. Para formar dezenas, use じゅう (10): 20 e にじゅう, 21 e にじゅういち, 30 e さんじゅう, ate 100 que e ひゃく.",
+    vocabulary,
+    grammar:
+      "A regra principal e combinar dezena + unidade. 10 e じゅう (juu). 20 e に + じゅう = にじゅう. 21 adiciona いち: にじゅういち. A mesma logica segue ate 99; 100 e ひゃく (hyaku).",
+    tips: [
+      "Use よん (yon) para 4 e なな (nana) para 7 nesta aula inicial, pois sao formas claras e comuns para contagem.",
+      "Pratique primeiro 1 a 10, depois as dezenas exatas, e por fim combine dezena + unidade.",
+      "Clique em Palavra para ouvir o numero inteiro e em Kana a kana para treinar a leitura por partes.",
+    ],
+    exercises: [
+      {
+        type: "multiple_choice",
+        question: "Qual e a leitura de 21 em japones?",
+        options: ["にじゅういち", "じゅうに", "さんじゅういち", "ひゃく"],
+        answerIndex: 0,
+        explanation: "21 e 20 + 1: にじゅう + いち = にじゅういち.",
+      },
+      {
+        type: "multiple_choice",
+        question: "Qual numero corresponde a さんじゅうご?",
+        options: ["25", "35", "53", "30"],
+        answerIndex: 1,
+        explanation: "さんじゅう e 30, ご e 5; juntos formam 35.",
+      },
+      {
+        type: "fill_blank",
+        question: "Complete em kana: 48 = よんじゅう___",
+        answer: "はち",
+        answerRomaji: "hachi",
+        translation: "48 = yonjuu hachi.",
+      },
+      {
+        type: "translate",
+        prompt: "Escreva 100 em japones, em kana e romaji.",
+        answer: "ひゃく",
+        answerKana: "ひゃく",
+        answerRomaji: "hyaku",
+      },
+    ],
+  };
+}
+
+function fixedLesson({ language, title }) {
+  if (language === "japones" && /numeros de 1 a 100/i.test(title || "")) {
+    return buildJapaneseNumbersLesson();
+  }
+  return null;
+}
+
 function buildLessonPrompt({ language, level, title, goal }) {
   const lang = languageNames[language] || "ingles";
   const isAlphabet = /alfabeto|som|pronuncia|vogai|letra|silab|escrita|leitura|romaj|kana|kanji|hiragana|katakana/i.test(
@@ -196,6 +298,12 @@ async function generateLesson(req, res) {
     const { language, level, title, goal, model } = payload;
     if (!title || !language || !level) {
       sendJson(res, 400, { error: "Campos obrigatorios: language, level, title." });
+      return;
+    }
+
+    const fixed = fixedLesson({ language, title });
+    if (fixed) {
+      sendJson(res, 200, { lesson: fixed });
       return;
     }
 
