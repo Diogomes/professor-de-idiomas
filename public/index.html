@@ -17,10 +17,6 @@
           </div>
         </div>
 
-        <div class="brand-card">
-          <img src="/assets/gigaverse-logo.png" alt="" />
-        </div>
-
         <label class="field">
           <span>Idioma</span>
           <select id="language">
@@ -32,7 +28,7 @@
         </label>
 
         <label class="field">
-          <span>Nivel</span>
+          <span>Nivel (chat)</span>
           <select id="level">
             <option value="iniciante">Iniciante</option>
             <option value="basico">Basico</option>
@@ -42,7 +38,7 @@
         </label>
 
         <label class="field">
-          <span>Modo</span>
+          <span>Modo (chat)</span>
           <select id="mode">
             <option value="aula curta">Aula curta</option>
             <option value="conversacao guiada">Conversacao</option>
@@ -59,7 +55,14 @@
           </select>
         </label>
 
-        <button id="newLesson" class="secondary" type="button">Nova aula</button>
+        <label class="field">
+          <span>Velocidade da fala</span>
+          <input id="speechRate" type="range" min="0.5" max="1.1" step="0.05" value="0.9" />
+        </label>
+
+        <button id="newLesson" class="secondary" type="button">Aula rapida por IA</button>
+
+        <p id="aiStatus" class="ai-status">Verificando IA local...</p>
       </aside>
 
       <section class="workspace">
@@ -68,15 +71,22 @@
             <p class="eyebrow">Gigaverse 3D - professor-idiomas</p>
             <h2>Laboratorio de Idiomas</h2>
           </div>
-          <span id="status" class="status">Pronto</span>
+          <div class="topbar-right">
+            <nav class="view-tabs" role="tablist" aria-label="Areas">
+              <button class="view-tab active" type="button" data-view="trilha">Trilha de aulas</button>
+              <button class="view-tab" type="button" data-view="chat">Chat / Conversacao</button>
+            </nav>
+            <span id="status" class="status">Pronto</span>
+          </div>
         </header>
 
-        <div class="classroom">
+        <!-- VISAO: TRILHA -->
+        <div id="view-trilha" class="view active">
           <section class="lesson-library" aria-label="Planos de aula">
             <div class="library-head">
               <div>
-                <p class="eyebrow">Planos guiados</p>
-                <h3>Trilhas de estudo</h3>
+                <p class="eyebrow">Curriculo guiado - 50 aulas por nivel</p>
+                <h3>Trilha de estudo</h3>
               </div>
               <div class="level-tabs" role="tablist" aria-label="Niveis">
                 <button class="level-tab active" type="button" data-plan-level="basico">Basico</button>
@@ -84,23 +94,72 @@
                 <button class="level-tab" type="button" data-plan-level="avancado">Avancado</button>
               </div>
             </div>
-            <div id="lessonPlans" class="lesson-grid"></div>
+
+            <div class="progress-wrap">
+              <div class="progress-bar"><span id="progressFill" class="progress-fill"></span></div>
+              <span id="progressLabel" class="progress-label">0 / 50 concluidas</span>
+            </div>
           </section>
 
-          <div id="messages" class="messages" aria-live="polite"></div>
+          <div id="lessonPlans" class="lesson-grid scroll-area"></div>
         </div>
 
-        <form id="chatForm" class="composer">
-          <textarea
-            id="messageInput"
-            rows="3"
-            placeholder="Escreva sua pergunta, peca uma aula ou pratique uma frase..."
-          ></textarea>
-          <button id="sendButton" type="submit">Enviar</button>
-        </form>
+        <!-- VISAO: CHAT -->
+        <div id="view-chat" class="view">
+          <div id="messages" class="messages scroll-area" aria-live="polite"></div>
+          <form id="chatForm" class="composer">
+            <textarea
+              id="messageInput"
+              rows="3"
+              placeholder="Escreva sua pergunta, peca uma aula ou pratique uma frase..."
+            ></textarea>
+            <button id="sendButton" type="submit">Enviar</button>
+          </form>
+        </div>
       </section>
     </main>
 
+    <!-- OVERLAY DE AULA -->
+    <div id="lessonOverlay" class="overlay" hidden>
+      <div class="overlay-card" role="dialog" aria-modal="true" aria-labelledby="lessonTitle">
+        <header class="overlay-head">
+          <div>
+            <span id="lessonBadge" class="lesson-meta">basico</span>
+            <h3 id="lessonTitle">Aula</h3>
+            <p id="lessonGoal" class="overlay-goal"></p>
+          </div>
+          <button id="closeLesson" class="icon-button" type="button" aria-label="Fechar">✕</button>
+        </header>
+
+        <div class="overlay-body scroll-area">
+          <div class="media-row">
+            <figure class="lesson-image">
+              <img id="lessonImage" alt="" />
+            </figure>
+            <div class="lesson-video">
+              <div id="videoPoster" class="video-poster">
+                <span class="play-icon">▶</span>
+                <p>Video-aula do tema</p>
+              </div>
+              <div class="video-actions">
+                <button id="watchHere" class="ghost" type="button">Assistir aqui</button>
+                <a id="watchYoutube" class="ghost" target="_blank" rel="noreferrer">Abrir no YouTube</a>
+              </div>
+            </div>
+          </div>
+
+          <div class="lesson-content-actions">
+            <button id="generateLesson" class="primary-action" type="button">Gerar conteudo com IA</button>
+            <button id="practiceChat" class="ghost" type="button">Praticar no chat</button>
+            <button id="completeLesson" class="ghost" type="button">Marcar como concluida</button>
+          </div>
+
+          <div id="lessonContent" class="lesson-content"></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="/curriculum.js"></script>
     <script src="/app.js"></script>
   </body>
 </html>
