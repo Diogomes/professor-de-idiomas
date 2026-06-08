@@ -1,0 +1,54 @@
+name: Build Windows EXE
+
+# Compila o executavel do Windows automaticamente:
+# - ao enviar uma tag "v*" (ex.: v1.0.0): compila e publica no GitHub Release;
+# - manualmente (Actions > Run workflow): compila e anexa como artefato.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Gerar executavel (NSIS + portable)
+        run: npm run dist:win
+        env:
+          # Sem assinatura de codigo (sem certificado configurado).
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Enviar artefato do build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ProfessorDeIdiomas-windows
+          path: |
+            dist/*.exe
+            dist/*.exe.blockmap
+          if-no-files-found: error
+
+      - name: Publicar no Release (apenas para tags v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.exe
+            dist/*.exe.blockmap
+          generate_release_notes: true
