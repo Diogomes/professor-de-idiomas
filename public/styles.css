@@ -483,6 +483,69 @@ h4 {
   background: rgba(0, 140, 255, 0.22);
 }
 
+/* ===== Mensagem estruturada do tutor ===== */
+.message.tutor {
+  display: grid;
+  gap: 10px;
+}
+.tutor-target {
+  border: 1px solid var(--line-bright);
+  border-left: 3px solid var(--accent-strong);
+  border-radius: 8px;
+  background: rgba(0, 140, 255, 0.1);
+  padding: 12px 14px;
+}
+.tutor-target.question {
+  border-left-color: #43e08a;
+  background: rgba(67, 224, 138, 0.1);
+}
+.tt-label {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+  margin-bottom: 6px;
+}
+.tutor-target.question .tt-label {
+  color: #8ff0bd;
+}
+.tt-alvo {
+  font-size: 22px;
+  line-height: 1.4;
+  color: #f3f9ff;
+}
+.tt-reading {
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--accent-strong);
+}
+.tutor-pt {
+  color: #cdd9e8;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.tt-tag {
+  display: inline-block;
+  border: 1px solid rgba(151, 168, 189, 0.5);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 5px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.tutor-explain {
+  color: #e8f1fb;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.message.tutor .message-actions {
+  margin-top: 10px;
+}
+
 .message.user {
   align-self: flex-end;
   border-color: rgba(0, 140, 255, 0.78);
@@ -860,6 +923,54 @@ h4 {
 }
 .writing-block h5 {
   color: #ffd9ad;
+}
+
+/* ===== Alfabeto japones (kana) ===== */
+.kana-intro {
+  color: #cdd9e8;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+.kana-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+.kana-cell {
+  display: grid;
+  gap: 2px;
+  min-height: 64px;
+  padding: 8px 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(3, 8, 16, 0.55);
+  color: #f1f7ff;
+  cursor: pointer;
+}
+.kana-cell:hover {
+  border-color: var(--line-bright);
+  background: rgba(0, 140, 255, 0.16);
+}
+.kana-hira {
+  font-size: 20px;
+  line-height: 1.1;
+}
+.kana-kata {
+  font-size: 14px;
+  color: var(--accent-strong);
+  line-height: 1.1;
+}
+.kana-romaji {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+@media (max-width: 860px) {
+  .kana-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 .vocab-translation {
   color: var(--muted);

@@ -102,9 +102,23 @@ function extractJson(text) {
 
 function buildLessonPrompt({ language, level, title, goal }) {
   const lang = languageNames[language] || "ingles";
+  const isAlphabet = /alfabeto|som|pronuncia|vogai|letra|silab/i.test(title || "");
 
   if (language === "japones") {
-    return `Voce e um professor de japones. Crie o conteudo da aula de nivel ${level} com o tema "${title}".
+    const alphabetNote = isAlphabet
+      ? '\n- Como este tema trata do alfabeto/sons, no campo "writing" explique os silabarios hiragana e katakana: as vogais あ/い/う/え/お e as colunas de consoantes (ka, sa, ta...). Em "vocabulary" use silabas/sons-chave (term em kana, phonetic em romaji).'
+      : "";
+    return buildJapanesePrompt({ level, title, goal, alphabetNote });
+  }
+
+  const alphabetNote = isAlphabet
+    ? `\n- Como este tema trata do alfabeto/sons, em "grammar" explique o alfabeto de ${lang} e o som de cada letra/grafema importante, e em "vocabulary" use letras ou sons-chave com exemplos de palavras.`
+    : "";
+  return buildGeneralPrompt({ lang, level, title, goal, alphabetNote });
+}
+
+function buildJapanesePrompt({ level, title, goal, alphabetNote }) {
+  return `Voce e um professor de japones. Crie o conteudo da aula de nivel ${level} com o tema "${title}".
 Objetivo da aula: ${goal}
 
 Em japones e essencial mostrar a ESCRITA corretamente. Para CADA palavra, preencha:
@@ -136,10 +150,11 @@ Regras:
 - Crie de 4 a 6 exercicios variados (multiple_choice, fill_blank e translate).
 - Nos exercicios de escrita (fill_blank e translate), peca e aceite a resposta nas DUAS estruturas: em kana (ou kanji) E em romaji. Preencha "answer", "answerKana" e "answerRomaji" de forma coerente.
 - Em multiple_choice, "answerIndex" e o indice (0 a 3) da opcao correta.
-- Adapte a dificuldade ao nivel ${level}.
+- Adapte a dificuldade ao nivel ${level}.${alphabetNote}
 - Nao inclua nada alem do JSON.`;
-  }
+}
 
+function buildGeneralPrompt({ lang, level, title, goal, alphabetNote }) {
   return `Voce e um professor de ${lang}. Crie o conteudo da aula de nivel ${level} com o tema "${title}".
 Objetivo da aula: ${goal}
 
@@ -168,7 +183,7 @@ Regras:
 - Use de 6 a 8 itens em "vocabulary", todos reais e corretos no idioma ${lang}.
 - Crie de 4 a 6 exercicios variados (multiple_choice, fill_blank e translate).
 - Em multiple_choice, "answerIndex" e o indice (0 a 3) da opcao correta.
-- Adapte a dificuldade ao nivel ${level}.
+- Adapte a dificuldade ao nivel ${level}.${alphabetNote}
 - Nao inclua nada alem do JSON.`;
 }
 
@@ -212,6 +227,82 @@ async function generateLesson(req, res) {
       error: "Nao foi possivel gerar a aula.",
       detail: error.message,
     });
+  }
+}
+
+// System prompt do tutor de conversa: forca saida estruturada separando o
+// idioma-alvo (escrita nativa) da explicacao em portugues do Brasil.
+function buildTutorPrompt({ language, level, mode }) {
+  const lang = languageNames[language] || "ingles";
+  const latin = language !== "japones"; // japones usa escrita nao-latina
+
+  return `Voce e um tutor particular de ${lang} para um aluno brasileiro (idioma nativo: portugues do Brasil).
+Nivel do aluno: ${level}. Modo: ${mode}.
+
+Responda SEMPRE com um unico objeto JSON valido, sem texto fora do JSON, sem markdown, neste formato:
+{
+  "alvo": "frase ou expressao no idioma-alvo (${lang}), escrita na ESCRITA NATIVA do idioma",
+  "leitura": ${latin ? '""' : '"romanizacao (romaji) da frase de alvo"'},
+  "traducao_pt": "traducao da frase de alvo em portugues do Brasil",
+  "explicacao_pt": "explicacao didatica curta em portugues do Brasil (gramatica, uso, correcao)",
+  "pergunta_alvo": "uma pergunta curta no idioma-alvo (${lang}), escrita nativa, para o aluno responder",
+  "pergunta_pt": "a mesma pergunta traduzida em portugues do Brasil"
+}
+
+Regras OBRIGATORIAS:
+- "alvo" e "pergunta_alvo" devem estar 100% no idioma-alvo (${lang}) e na escrita nativa. NUNCA escreva portugues nesses campos.
+- "traducao_pt", "explicacao_pt" e "pergunta_pt" devem estar em portugues do Brasil.
+- Nunca misture os dois idiomas no mesmo campo.
+${
+  latin
+    ? '- O idioma-alvo usa alfabeto latino: deixe "leitura" como string vazia "".'
+    : '- O idioma-alvo nao usa alfabeto latino: preencha "leitura" com a romanizacao (romaji) da frase de alvo.'
+}
+- Adapte a dificuldade ao nivel ${level} e ao modo ${mode}.
+- Se o aluno escrever no idioma-alvo, corrija em "explicacao_pt" e modele a forma correta em "alvo".
+- Se o pedido for "meta" (listar assuntos, dar instrucoes, sem frase de exemplo), deixe "alvo", "leitura", "pergunta_alvo" e "pergunta_pt" como "" e escreva a resposta em "explicacao_pt".
+- Nao inclua nada alem do JSON.`;
+}
+
+async function tutorReply(req, res) {
+  try {
+    const rawBody = await readRequestBody(req);
+    const payload = JSON.parse(rawBody || "{}");
+    const {
+      language = "ingles",
+      level = "iniciante",
+      mode = "conversacao",
+      messages = [],
+      model,
+    } = payload;
+
+    const system = buildTutorPrompt({ language, level, mode });
+    const result = await callOllamaChat({
+      model,
+      messages: [{ role: "system", content: system }, ...messages],
+      format: "json",
+    });
+
+    let parsed = null;
+    try {
+      const outer = JSON.parse(result.text);
+      const content = outer.message?.content ?? "";
+      parsed = extractJson(content) || (typeof content === "object" ? content : null);
+    } catch {
+      parsed = null;
+    }
+
+    if (!parsed || typeof parsed !== "object") {
+      sendJson(res, 502, {
+        error: "O tutor nao retornou um JSON valido. Tente novamente.",
+        raw: result.text.slice(0, 400),
+      });
+      return;
+    }
+
+    sendJson(res, 200, { tutor: parsed });
+  } catch (error) {
+    sendJson(res, 500, { error: "Nao foi possivel falar com o tutor.", detail: error.message });
   }
 }
 
@@ -289,6 +380,11 @@ const server = http.createServer((req, res) => {
 
   if (req.url === "/api/lesson" && req.method === "POST") {
     generateLesson(req, res);
+    return;
+  }
+
+  if (req.url === "/api/tutor" && req.method === "POST") {
+    tutorReply(req, res);
     return;
   }
 

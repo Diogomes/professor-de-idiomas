@@ -41,12 +41,20 @@ let availableVoices = [];
 let currentLesson = null; // { level, index, data }
 let aiAvailable = false;
 
+// Mapa central idioma -> locale/voz (BCP-47). Fonte unica do TTS.
+// "latin": escrita latina (sem necessidade de romanizacao). pt-BR fica
+// reservado caso um dia se queira ler explicacoes (hoje, nao se le PT).
 const languageConfig = {
-  japones: { speechLang: "ja-JP", label: "Japones", code: "ja" },
-  ingles: { speechLang: "en-US", label: "Ingles", code: "en" },
-  espanhol: { speechLang: "es-ES", label: "Espanhol", code: "es" },
-  frances: { speechLang: "fr-FR", label: "Frances", code: "fr" },
+  japones: { speechLang: "ja-JP", label: "Japones", code: "ja", latin: false },
+  ingles: { speechLang: "en-US", label: "Ingles", code: "en", latin: true },
+  espanhol: { speechLang: "es-ES", label: "Espanhol", code: "es", latin: true },
+  frances: { speechLang: "fr-FR", label: "Frances", code: "fr", latin: true },
+  portugues: { speechLang: "pt-BR", label: "Portugues", code: "pt", latin: true },
 };
+
+function targetConfig() {
+  return languageConfig[languageEl.value] || languageConfig.ingles;
+}
 
 // Assuntos sugeridos para a conversacao, por faixa de nivel.
 const conversationTopics = {
@@ -127,43 +135,135 @@ function spell(text) {
   });
 }
 
+// Fala uma sequencia de textos SEMPRE no locale do idioma-alvo selecionado.
+// Usada para falar apenas os campos do idioma-alvo (nunca os campos em PT).
+function speakSequence(texts, { slow = false } = {}) {
+  const clean = (texts || []).map((t) => (t || "").trim()).filter(Boolean);
+  if (!clean.length || !("speechSynthesis" in window)) return;
+  refreshVoices();
+  const config = targetConfig();
+  const baseRate = Number(speechRateEl.value) || 0.9;
+  const voice = findVoice(config.speechLang, voiceGenderEl.value);
+  window.speechSynthesis.cancel();
+  clean.forEach((text) => {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = config.speechLang;
+    u.rate = slow ? Math.max(0.4, baseRate - 0.35) : baseRate;
+    u.pitch = voiceGenderEl.value === "male" ? 0.9 : 1.06;
+    if (voice) u.voice = voice;
+    window.speechSynthesis.speak(u);
+  });
+}
+
+function escapeHtml(s) {
+  return (s || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 // ===== Chat =====
-function addMessage(role, content) {
+// Botoes de audio que falam APENAS textos do idioma-alvo (em sequencia).
+function buildAudioActions(targetTexts) {
+  const clean = (targetTexts || []).filter(Boolean);
+  const actions = document.createElement("div");
+  actions.className = "message-actions";
+  const listen = document.createElement("button");
+  listen.className = "listen-button";
+  listen.type = "button";
+  listen.textContent = "🔊 Ouvir";
+  listen.addEventListener("click", () => speakSequence(clean));
+  const slow = document.createElement("button");
+  slow.className = "listen-button";
+  slow.type = "button";
+  slow.textContent = "🐢 Devagar";
+  slow.addEventListener("click", () => speakSequence(clean, { slow: true }));
+  actions.append(listen, slow);
+  return actions;
+}
+
+// Mensagem simples (texto). Audio opcional, falado SOMENTE se audioText for um
+// texto no idioma-alvo. Mensagens em PT (sistema, boas-vindas) ficam sem audio.
+function addMessage(role, content, { audioText = null } = {}) {
   const el = document.createElement("article");
   el.className = `message ${role}`;
   const body = document.createElement("div");
   body.className = "message-body";
   body.textContent = content;
   el.appendChild(body);
+  if (audioText) el.appendChild(buildAudioActions([audioText]));
+  messagesEl.appendChild(el);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
 
-  if (role === "assistant") {
-    const actions = document.createElement("div");
-    actions.className = "message-actions";
-    const listen = document.createElement("button");
-    listen.className = "listen-button";
-    listen.type = "button";
-    listen.textContent = "Ouvir";
-    listen.addEventListener("click", () => speak(content));
-    const slow = document.createElement("button");
-    slow.className = "listen-button";
-    slow.type = "button";
-    slow.textContent = "Ouvir devagar";
-    slow.addEventListener("click", () => speak(content, { slow: true }));
-    actions.append(listen, slow);
-    el.appendChild(actions);
+// Mensagem estruturada do tutor: separa idioma-alvo (escrita nativa, com audio)
+// da explicacao/traducao em PT-BR (sem audio).
+function addTutorMessage(fields) {
+  const f = fields || {};
+  const lang = targetConfig().label;
+  const el = document.createElement("article");
+  el.className = "message assistant tutor";
+
+  const hasAlvo = f.alvo && f.alvo.trim();
+  const hasPergunta = f.pergunta_alvo && f.pergunta_alvo.trim();
+
+  // Bloco da frase no idioma-alvo
+  if (hasAlvo) {
+    const block = document.createElement("div");
+    block.className = "tutor-target";
+    block.innerHTML = `<span class="tt-label">${lang}</span>
+      <p class="tt-alvo" lang="target">${escapeHtml(f.alvo)}</p>
+      ${f.leitura && f.leitura.trim() ? `<p class="tt-reading">${escapeHtml(f.leitura)}</p>` : ""}`;
+    block.appendChild(buildAudioActions([f.alvo])); // audio so do alvo (escrita nativa)
+    el.appendChild(block);
+  }
+
+  // Traducao em PT (sem audio)
+  if (f.traducao_pt && f.traducao_pt.trim()) {
+    const tr = document.createElement("p");
+    tr.className = "tutor-pt";
+    tr.innerHTML = `<span class="tt-tag">PT</span> ${escapeHtml(f.traducao_pt)}`;
+    el.appendChild(tr);
+  }
+
+  // Explicacao didatica em PT (sem audio)
+  if (f.explicacao_pt && f.explicacao_pt.trim()) {
+    const ex = document.createElement("p");
+    ex.className = "tutor-explain";
+    ex.textContent = f.explicacao_pt;
+    el.appendChild(ex);
+  }
+
+  // Pergunta no idioma-alvo (com audio) + traducao em PT
+  if (hasPergunta) {
+    const block = document.createElement("div");
+    block.className = "tutor-target question";
+    block.innerHTML = `<span class="tt-label">Pergunta - ${lang}</span>
+      <p class="tt-alvo" lang="target">${escapeHtml(f.pergunta_alvo)}</p>`;
+    block.appendChild(buildAudioActions([f.pergunta_alvo]));
+    el.appendChild(block);
+    if (f.pergunta_pt && f.pergunta_pt.trim()) {
+      const pq = document.createElement("p");
+      pq.className = "tutor-pt";
+      pq.innerHTML = `<span class="tt-tag">PT</span> ${escapeHtml(f.pergunta_pt)}`;
+      el.appendChild(pq);
+    }
+  }
+
+  // Sem nenhum campo reconhecido: mostra algo para nao ficar vazio.
+  if (!el.querySelector(".tutor-target, .tutor-pt, .tutor-explain")) {
+    const body = document.createElement("div");
+    body.className = "message-body";
+    body.textContent = "(o tutor nao retornou conteudo legivel)";
+    el.appendChild(body);
   }
 
   messagesEl.appendChild(el);
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-function contextMessage() {
-  return `Idioma alvo: ${languageEl.value}. Nivel: ${levelEl.value}. Modo: ${modeEl.value}. Responda como professor particular, em portugues para explicacoes, e termine com um mini exercicio.`;
-}
-
 async function sendMessage(content) {
-  const userContent = `${contextMessage()}\n\nPedido do aluno: ${content}`;
-  history.push({ role: "user", content: userContent });
+  history.push({ role: "user", content });
   addMessage("user", content);
 
   statusEl.textContent = "Pensando";
@@ -171,25 +271,44 @@ async function sendMessage(content) {
   input.disabled = true;
 
   try {
-    const response = await fetch("/api/chat", {
+    const response = await fetch("/api/tutor", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "professor-idiomas", messages: history.slice(-10) }),
+      body: JSON.stringify({
+        language: languageEl.value,
+        level: levelEl.value,
+        mode: modeEl.value,
+        messages: history.slice(-10),
+      }),
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${response.status}`);
+    }
     const data = await response.json();
-    const answer = data.message?.content || "Nao recebi uma resposta valida.";
-    history.push({ role: "assistant", content: answer });
-    addMessage("assistant", answer);
+    const fields = data.tutor || {};
+    addTutorMessage(fields);
+
+    // Guarda no historico um texto legivel (para o modelo manter contexto).
+    const recon = [f0(fields)].filter(Boolean).join("");
+    history.push({ role: "assistant", content: recon || "(sem conteudo)" });
     statusEl.textContent = "Pronto";
   } catch (error) {
     statusEl.textContent = "Erro";
-    addMessage("system", `Nao consegui falar com o Ollama. Detalhe: ${error.message}`);
+    addMessage("system", `Nao consegui falar com o tutor. Detalhe: ${error.message}`);
   } finally {
     sendButton.disabled = false;
     input.disabled = false;
     input.focus();
   }
+}
+
+// Reconstrucao textual de um turno do tutor para guardar no historico.
+function f0(f) {
+  return [f.alvo, f.leitura, f.traducao_pt, f.explicacao_pt, f.pergunta_alvo, f.pergunta_pt]
+    .map((x) => (x || "").trim())
+    .filter(Boolean)
+    .join(" | ");
 }
 
 // ===== Sugestoes de assunto e traducao =====
@@ -248,7 +367,8 @@ async function translateInput() {
     });
     const d = await r.json();
     if (!r.ok || !d.translated) throw new Error(d.error || `HTTP ${r.status}`);
-    addMessage("assistant", `Traducao (pt → ${cfg.label.toLowerCase()}):\n${d.translated}`);
+    // Texto-alvo com audio; o PT (origem) fica como referencia, sem audio.
+    addTutorMessage({ alvo: d.translated, traducao_pt: text });
   } catch (e) {
     addMessage("system", `Nao consegui traduzir: ${e.message}`);
   } finally {
@@ -299,6 +419,52 @@ function youtubeSearchUrl(keyword) {
 function youtubeEmbedUrl(keyword) {
   const query = `${languageConfig[languageEl.value].label} ${keyword} aula`;
   return `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(query)}`;
+}
+// Video fixado para a aula no idioma atual (ex.: alfabeto japones), se houver.
+function pinnedVideoId(plan) {
+  return (plan.videos && plan.videos[languageEl.value]) || null;
+}
+function youtubeEmbedById(id) {
+  return `https://www.youtube-nocookie.com/embed/${id}?rel=0`;
+}
+function youtubeWatchById(id) {
+  return `https://www.youtube.com/watch?v=${id}`;
+}
+
+// Gojuon: silabario basico japones [romaji, hiragana, katakana].
+const GOJUON = [
+  ["a", "あ", "ア"], ["i", "い", "イ"], ["u", "う", "ウ"], ["e", "え", "エ"], ["o", "お", "オ"],
+  ["ka", "か", "カ"], ["ki", "き", "キ"], ["ku", "く", "ク"], ["ke", "け", "ケ"], ["ko", "こ", "コ"],
+  ["sa", "さ", "サ"], ["shi", "し", "シ"], ["su", "す", "ス"], ["se", "せ", "セ"], ["so", "そ", "ソ"],
+  ["ta", "た", "タ"], ["chi", "ち", "チ"], ["tsu", "つ", "ツ"], ["te", "て", "テ"], ["to", "と", "ト"],
+  ["na", "な", "ナ"], ["ni", "に", "ニ"], ["nu", "ぬ", "ヌ"], ["ne", "ね", "ネ"], ["no", "の", "ノ"],
+  ["ha", "は", "ハ"], ["hi", "ひ", "ヒ"], ["fu", "ふ", "フ"], ["he", "へ", "ヘ"], ["ho", "ほ", "ホ"],
+  ["ma", "ま", "マ"], ["mi", "み", "ミ"], ["mu", "む", "ム"], ["me", "め", "メ"], ["mo", "も", "モ"],
+  ["ya", "や", "ヤ"], ["yu", "ゆ", "ユ"], ["yo", "よ", "ヨ"],
+  ["ra", "ら", "ラ"], ["ri", "り", "リ"], ["ru", "る", "ル"], ["re", "れ", "レ"], ["ro", "ろ", "ロ"],
+  ["wa", "わ", "ワ"], ["wo", "を", "ヲ"], ["n", "ん", "ン"],
+];
+
+// Tabela interativa do alfabeto japones (toque para ouvir cada som).
+function buildKanaSection() {
+  const section = document.createElement("section");
+  section.className = "content-block kana-block";
+  section.innerHTML = `<h5>Alfabeto japones: hiragana e katakana</h5>
+    <p class="kana-intro">O japones usa tres escritas. Comece pelos dois silabarios:
+    <strong>hiragana</strong> (palavras japonesas) e <strong>katakana</strong> (palavras estrangeiras).
+    Cada simbolo e uma silaba. Toque em qualquer um para ouvir o som.</p>`;
+  const grid = document.createElement("div");
+  grid.className = "kana-grid";
+  GOJUON.forEach(([romaji, hira, kata]) => {
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "kana-cell";
+    cell.innerHTML = `<span class="kana-hira">${hira}</span><span class="kana-kata">${kata}</span><span class="kana-romaji">${romaji}</span>`;
+    cell.addEventListener("click", () => speak(hira));
+    grid.appendChild(cell);
+  });
+  section.appendChild(grid);
+  return section;
 }
 
 // ===== Cache de aula gerada pela IA =====
@@ -362,10 +528,14 @@ function openLesson(level, index) {
   };
   lessonImageEl.parentElement.classList.remove("img-fallback");
 
-  // Video
-  watchYoutubeLink.href = youtubeSearchUrl(plan.k);
-  videoPosterEl.innerHTML = '<span class="play-icon">▶</span><p>Video-aula do tema</p>';
+  // Video: usa o video fixado para o idioma atual, se houver; senao, busca.
+  const pinned = pinnedVideoId(plan);
+  currentLesson.kana = !!plan.kana && languageEl.value === "japones";
+  watchYoutubeLink.href = pinned ? youtubeWatchById(pinned) : youtubeSearchUrl(plan.k);
   videoPosterEl.classList.remove("playing");
+  videoPosterEl.innerHTML = pinned
+    ? '<span class="play-icon">▶</span><p>Video-aula recomendada</p>'
+    : '<span class="play-icon">▶</span><p>Video-aula do tema</p>';
 
   // Estado do conteudo
   const cached = loadCachedLesson(level, index);
@@ -373,9 +543,12 @@ function openLesson(level, index) {
     currentLesson.data = cached;
     renderLessonData(cached);
   } else {
-    lessonContentEl.innerHTML = `<div class="empty-content">
-      <p>Clique em <strong>Gerar conteudo com IA</strong> para criar vocabulario, explicacao e exercicios desta aula em ${languageConfig[languageEl.value].label.toLowerCase()}.</p>
-    </div>`;
+    lessonContentEl.textContent = "";
+    if (currentLesson.kana) lessonContentEl.appendChild(buildKanaSection());
+    const empty = document.createElement("div");
+    empty.className = "empty-content";
+    empty.innerHTML = `<p>Clique em <strong>Gerar conteudo com IA</strong> para criar vocabulario, explicacao e exercicios desta aula em ${languageConfig[languageEl.value].label.toLowerCase()}.</p>`;
+    lessonContentEl.appendChild(empty);
   }
   updateCompleteButton();
 
@@ -460,6 +633,9 @@ function answerDisplay(exercise) {
 
 function renderLessonData(lesson) {
   lessonContentEl.textContent = "";
+
+  // Tabela de kana (hiragana/katakana) na aula de alfabeto em japones.
+  if (currentLesson && currentLesson.kana) lessonContentEl.appendChild(buildKanaSection());
 
   if (lesson.intro) {
     const intro = document.createElement("p");
@@ -696,8 +872,10 @@ function showFeedback(card, correct, text) {
 watchHereBtn.addEventListener("click", () => {
   if (!currentLesson) return;
   const plan = curriculum[currentLesson.level][currentLesson.index];
+  const pinned = pinnedVideoId(plan);
+  const src = pinned ? youtubeEmbedById(pinned) : youtubeEmbedUrl(plan.k);
   videoPosterEl.classList.add("playing");
-  videoPosterEl.innerHTML = `<iframe src="${youtubeEmbedUrl(plan.k)}" title="Video-aula"
+  videoPosterEl.innerHTML = `<iframe src="${src}" title="Video-aula"
     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
     allowfullscreen referrerpolicy="origin"></iframe>`;
 });
