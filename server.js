@@ -195,7 +195,86 @@ function buildJapaneseNumbersLesson() {
   };
 }
 
+function buildJapaneseSmallNumbersLesson() {
+  const translations = {
+    1: "um",
+    2: "dois",
+    3: "tres",
+    4: "quatro",
+    5: "cinco",
+    6: "seis",
+    7: "sete",
+    8: "oito",
+    9: "nove",
+    10: "dez",
+  };
+
+  const vocabulary = Array.from({ length: 10 }, (_, index) => {
+    const number = index + 1;
+    const [kana, romaji] = japaneseNumberReading(number);
+    return {
+      term: String(number),
+      kana,
+      phonetic: romaji,
+      script: "numero + hiragana",
+      translation: translations[number],
+      example: `${number}です。`,
+      exampleKana: `${kana}です。`,
+      exampleRomaji: `${romaji} desu.`,
+      exampleTranslation: `E ${translations[number]}.`,
+    };
+  });
+
+  return {
+    intro:
+      "Nesta aula voce vai aprender os numeros japoneses de 1 a 10, com leitura em hiragana, romaji e traducao em portugues.",
+    writing:
+      "Para estudo inicial, mostramos os numeros como algarismos (1, 2, 3...), a leitura em hiragana e o romaji. Em japones, tambem existem kanji para numeros, como 一, 二 e 三, mas aqui o foco e falar e reconhecer de 1 a 10.",
+    vocabulary,
+    grammar:
+      "Memorize primeiro 1 a 10: いち, に, さん, よん, ご, ろく, なな, はち, きゅう, じゅう. Eles sao a base para formar numeros maiores.",
+    tips: [
+      "Para 4, use よん (yon) nesta fase inicial.",
+      "Para 7, use なな (nana) nesta fase inicial.",
+      "Treine ouvindo cada numero e repetindo em voz alta.",
+    ],
+    exercises: [
+      {
+        type: "multiple_choice",
+        question: "Qual e a leitura de 3 em japones?",
+        options: ["さん", "に", "ご", "はち"],
+        answerIndex: 0,
+        explanation: "3 se le さん (san).",
+      },
+      {
+        type: "multiple_choice",
+        question: "Qual numero corresponde a なな?",
+        options: ["4", "7", "9", "10"],
+        answerIndex: 1,
+        explanation: "なな (nana) significa 7.",
+      },
+      {
+        type: "fill_blank",
+        question: "Complete em kana: 10 = ___",
+        answer: "じゅう",
+        answerRomaji: "juu",
+        translation: "10 = dez.",
+      },
+      {
+        type: "translate",
+        prompt: "Escreva 8 em japones, em kana e romaji.",
+        answer: "はち",
+        answerKana: "はち",
+        answerRomaji: "hachi",
+      },
+    ],
+  };
+}
+
 function fixedLesson({ language, title }) {
+  if (language === "japones" && /numeros de 1 a 10/i.test(title || "")) {
+    return buildJapaneseSmallNumbersLesson();
+  }
   if (language === "japones" && /numeros de 1 a 100/i.test(title || "")) {
     return buildJapaneseNumbersLesson();
   }
