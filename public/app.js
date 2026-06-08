@@ -538,7 +538,7 @@ function buildKanaSection() {
 
 // ===== Cache de aula gerada pela IA =====
 function lessonCacheKey(level, index) {
-  return `pdi:lesson:v5:${languageEl.value}:${level}:${index}`;
+  return `pdi:lesson:v6:${languageEl.value}:${level}:${index}`;
 }
 function loadCachedLesson(level, index) {
   try {

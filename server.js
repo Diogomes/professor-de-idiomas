@@ -276,11 +276,12 @@ function buildJapaneseSmallNumbersLesson() {
 }
 
 function fixedLesson({ language, title }) {
-  if (language === "japones" && /numeros de 1 a 10/i.test(title || "")) {
-    return buildJapaneseSmallNumbersLesson();
-  }
-  if (language === "japones" && /numeros de 1 a 100/i.test(title || "")) {
+  const normalizedTitle = String(title || "").trim().toLowerCase();
+  if (language === "japones" && normalizedTitle === "numeros de 1 a 100") {
     return buildJapaneseNumbersLesson();
+  }
+  if (language === "japones" && normalizedTitle === "numeros de 1 a 10") {
+    return buildJapaneseSmallNumbersLesson();
   }
   return null;
 }
