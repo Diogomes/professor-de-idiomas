@@ -1,0 +1,52 @@
+{
+  "name": "professor-de-idiomas",
+  "version": "1.0.0",
+  "description": "Professor de idiomas local: trilha de aulas, chat com IA local, audio, video e exercicios. Funciona offline apos a primeira execucao.",
+  "author": "Gigaverse 3D",
+  "license": "MIT",
+  "main": "electron/main.js",
+  "scripts": {
+    "server": "node server.js",
+    "start": "electron .",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux",
+    "dist:mac": "electron-builder --mac"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.gigaverse.professoridiomas",
+    "productName": "Professor de Idiomas",
+    "files": [
+      "electron/**/*",
+      "public/**/*",
+      "server.js"
+    ],
+    "extraResources": [
+      "Modelfile.professor"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "artifactName": "ProfessorDeIdiomas-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Education"
+    },
+    "directories": {
+      "output": "dist"
+    }
+  }
+}

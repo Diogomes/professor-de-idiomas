@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>Professor de Idiomas</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+        color: #ecf4ff;
+        background:
+          radial-gradient(circle at 70% 10%, rgba(0, 113, 255, 0.22), transparent 32%),
+          linear-gradient(145deg, #02050a 0%, #070b13 45%, #020409 100%);
+      }
+      .card {
+        width: min(560px, 90vw);
+        padding: 36px;
+        border: 1px solid rgba(32, 153, 255, 0.4);
+        border-radius: 16px;
+        background: linear-gradient(160deg, rgba(13, 22, 38, 0.95), rgba(3, 7, 14, 0.98));
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+        text-align: center;
+      }
+      h1 { font-size: 22px; margin: 0 0 6px; color: #d8e1ee; text-transform: uppercase; letter-spacing: 1px; }
+      .sub { color: #97a8bd; font-size: 13px; margin-bottom: 26px; }
+      .bar { height: 12px; border-radius: 999px; background: rgba(3, 8, 16, 0.9); border: 1px solid rgba(76,132,214,0.32); overflow: hidden; }
+      .fill { height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, #129cff, #3ec5ff); transition: width .25s ease; box-shadow: 0 0 14px rgba(0,140,255,.5); }
+      .label { margin-top: 14px; font-size: 14px; color: #cfe9ff; min-height: 20px; }
+      .pct { margin-top: 6px; font-size: 12px; color: #97a8bd; }
+      .warn { margin-top: 16px; font-size: 13px; color: #ffd9ad; }
+      .error { margin-top: 16px; font-size: 14px; color: #ffb3bd; line-height: 1.5; }
+      .actions { margin-top: 20px; display: none; gap: 10px; justify-content: center; }
+      button {
+        min-height: 40px; padding: 0 18px; border: 0; border-radius: 8px; cursor: pointer; font-weight: 700; font: inherit;
+        font-size: 14px;
+      }
+      .primary { background: linear-gradient(180deg, #129cff, #006ee8); color: #fff; }
+      .ghost { background: rgba(0,140,255,.12); color: #dff4ff; border: 1px solid rgba(32,153,255,.5); }
+      .spinner { margin: 0 auto 18px; width: 40px; height: 40px; border-radius: 50%; border: 3px solid rgba(62,197,255,.25); border-top-color: #3ec5ff; animation: spin 1s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="spinner" id="spinner"></div>
+      <h1>Professor de Idiomas</h1>
+      <p class="sub">Preparando o ambiente local. Na primeira vez baixamos a IA (precisa de internet uma vez); depois funciona offline.</p>
+      <div class="bar"><span class="fill" id="fill"></span></div>
+      <div class="label" id="label">Iniciando...</div>
+      <div class="pct" id="pct"></div>
+      <div class="warn" id="warn"></div>
+      <div class="error" id="error"></div>
+      <div class="actions" id="actions">
+        <button class="primary" id="retry">Tentar novamente</button>
+        <button class="ghost" id="continue">Abrir mesmo assim</button>
+      </div>
+    </div>
+
+    <script>
+      const fill = document.getElementById("fill");
+      const label = document.getElementById("label");
+      const pct = document.getElementById("pct");
+      const warn = document.getElementById("warn");
+      const error = document.getElementById("error");
+      const actions = document.getElementById("actions");
+      const spinner = document.getElementById("spinner");
+
+      window.setup.onProgress((p) => {
+        if (p.label) label.textContent = p.label;
+        const r = typeof p.ratio === "number" ? Math.max(0, Math.min(1, p.ratio)) : null;
+        if (r !== null) {
+          fill.style.width = (r * 100).toFixed(0) + "%";
+          pct.textContent = (r * 100).toFixed(0) + "%";
+        }
+      });
+      window.setup.onWarn((p) => { warn.textContent = p.message || ""; });
+      window.setup.onError((p) => {
+        spinner.style.display = "none";
+        label.textContent = "Nao foi possivel concluir a instalacao da IA.";
+        error.textContent = p.message || "";
+        actions.style.display = "flex";
+      });
+      document.getElementById("retry").addEventListener("click", () => {
+        error.textContent = ""; actions.style.display = "none"; spinner.style.display = "block";
+        label.textContent = "Tentando novamente...";
+        window.setup.retry();
+      });
+      document.getElementById("continue").addEventListener("click", () => window.setup.continueAnyway());
+    </script>
+  </body>
+</html>

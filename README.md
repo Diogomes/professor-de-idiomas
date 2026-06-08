@@ -33,7 +33,43 @@ Idiomas: japones, ingles, espanhol e frances.
 - **Traducao automatica** (PT -> idioma) via API gratuita e sem chave
   (MyMemory), direto do campo de mensagem.
 
-## Pre-requisitos
+## App desktop (Windows) - funciona offline
+
+O app pode rodar como um **aplicativo desktop** (Electron), com janela propria,
+sem precisar subir o `localhost` manualmente. Ele sobe o servidor local e a IA
+(Ollama) por baixo automaticamente.
+
+- **Primeira execucao (precisa de internet uma vez):** o app baixa o Ollama e o
+  modelo (~1.4 GB) para a pasta de dados do usuario.
+- **Depois disso, funciona 100% offline** para a parte de estudo: trilha de
+  aulas, geracao de aulas por IA, chat/conversacao, exercicios e audio (TTS).
+- **Com internet**, tambem funcionam: imagens tematicas, video-aulas do YouTube
+  e a traducao automatica. **Offline**, essas tres degradam graciosamente (a
+  aula avisa que o recurso precisa de internet) sem quebrar o restante.
+
+### Rodar em modo desenvolvimento
+
+```bash
+npm install
+npm start          # abre a janela do app (Electron)
+```
+
+### Gerar o executavel do Windows
+
+O `.exe` precisa ser gerado **em uma maquina Windows** (ou CI Windows):
+
+```bash
+npm install
+npm run dist:win   # gera dist/ProfessorDeIdiomas-<versao>-x64.exe (instalador NSIS) e a versao portable
+```
+
+O instalador NSIS permite escolher a pasta de instalacao. O modelo da IA NAO vai
+dentro do instalador (por isso ele e pequeno): e baixado na primeira execucao.
+
+> Observacao: tambem da para rodar so o servidor web (sem janela), como antes,
+> com `npm run server` e acessar `http://localhost:3000`.
+
+## Pre-requisitos (modo servidor)
 
 - Node.js 18+ (testado com Node 22).
 - Ollama (servidor de IA local). No Windows ha os scripts PowerShell em

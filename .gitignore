@@ -3,6 +3,7 @@ downloads/
 models/
 .ollama-home/
 node_modules/
+dist/
 .env
 .env.*
 *.log

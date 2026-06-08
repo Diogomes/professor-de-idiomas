@@ -403,6 +403,23 @@ const server = http.createServer((req, res) => {
   serveStatic(req, res);
 });
 
-server.listen(port, () => {
-  console.log(`Interface ativa em http://localhost:${port}`);
-});
+function start(cb) {
+  server.listen(port, "127.0.0.1", () => {
+    console.log(`Interface ativa em http://localhost:${port}`);
+    if (typeof cb === "function") cb(port);
+  });
+  return server;
+}
+
+// Executado direto (node server.js): sobe o servidor.
+// Exigido pelo Electron (require): exporta start() para controlar o ciclo de vida.
+if (require.main === module) {
+  start();
+}
+
+module.exports = {
+  start,
+  get port() {
+    return port;
+  },
+};

@@ -56,6 +56,12 @@ function targetConfig() {
   return languageConfig[languageEl.value] || languageConfig.ingles;
 }
 
+// Estrutura de estudo, chat e aulas funcionam offline (IA local).
+// Imagens, video e traducao automatica dependem de internet.
+function isOffline() {
+  return typeof navigator !== "undefined" && navigator.onLine === false;
+}
+
 // Assuntos sugeridos para a conversacao, por faixa de nivel.
 const conversationTopics = {
   iniciante: [
@@ -355,6 +361,10 @@ async function translateInput() {
     input.focus();
     return;
   }
+  if (isOffline()) {
+    addMessage("system", "A traducao automatica precisa de internet. As aulas e o chat seguem funcionando offline.");
+    return;
+  }
   const cfg = languageConfig[languageEl.value] || languageConfig.ingles;
   translateButton.disabled = true;
   const original = translateButton.textContent;
@@ -526,28 +536,41 @@ function openLesson(level, index) {
   lessonTitleEl.textContent = plan.t;
   lessonGoalEl.textContent = plan.g;
 
-  // Imagem tematica
-  lessonImageEl.src = imageUrl(plan.k, level.charCodeAt(0) * 100 + index);
-  lessonImageEl.onerror = () => {
+  // Imagem tematica (requer internet). Offline: vai direto ao placeholder.
+  const fig = lessonImageEl.parentElement;
+  fig.classList.remove("img-fallback");
+  fig.dataset.label = plan.t;
+  if (isOffline()) {
     lessonImageEl.removeAttribute("src");
-    lessonImageEl.parentElement.classList.add("img-fallback");
-    lessonImageEl.parentElement.dataset.label = plan.t;
-  };
-  lessonImageEl.parentElement.classList.remove("img-fallback");
+    fig.classList.add("img-fallback");
+  } else {
+    lessonImageEl.src = imageUrl(plan.k, level.charCodeAt(0) * 100 + index);
+    lessonImageEl.onerror = () => {
+      lessonImageEl.removeAttribute("src");
+      fig.classList.add("img-fallback");
+    };
+  }
 
-  // Video: embute o video fixado (se houver); senao, busca coerente no YouTube.
+  // Video (requer internet). Embute o video fixado; senao, busca coerente.
   // O embed de busca do YouTube foi descontinuado, entao sem video fixado
   // mostramos apenas o link de busca (sempre funciona e on-topic).
   const pinned = pinnedVideoId(plan);
   currentLesson.kana = !!plan.kana && languageEl.value === "japones";
-  watchYoutubeLink.href = pinned
-    ? youtubeWatchById(pinned)
-    : youtubeSearchUrlFor(lessonVideoQuery(plan, level));
-  watchHereBtn.style.display = pinned ? "" : "none";
   videoPosterEl.classList.remove("playing");
-  videoPosterEl.innerHTML = pinned
-    ? '<span class="play-icon">▶</span><p>Video-aula recomendada</p>'
-    : '<span class="play-icon">🔎</span><p>Buscar video-aula deste tema no YouTube</p>';
+  if (isOffline()) {
+    watchHereBtn.style.display = "none";
+    watchYoutubeLink.style.display = "none";
+    videoPosterEl.innerHTML = '<span class="play-icon">⚠</span><p>Video disponivel apenas com internet</p>';
+  } else {
+    watchYoutubeLink.style.display = "";
+    watchYoutubeLink.href = pinned
+      ? youtubeWatchById(pinned)
+      : youtubeSearchUrlFor(lessonVideoQuery(plan, level));
+    watchHereBtn.style.display = pinned ? "" : "none";
+    videoPosterEl.innerHTML = pinned
+      ? '<span class="play-icon">▶</span><p>Video-aula recomendada</p>'
+      : '<span class="play-icon">🔎</span><p>Buscar video-aula deste tema no YouTube</p>';
+  }
 
   // Estado do conteudo
   const cached = loadCachedLesson(level, index);
