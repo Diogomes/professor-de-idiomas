@@ -22,9 +22,16 @@ Idiomas: japones, ingles, espanhol e frances.
 - **Video-aula** por tema: assistir embutido (busca do YouTube) ou abrir no
   YouTube.
 - **Exercicios interativos**: multipla escolha (com correcao na hora),
-  completar lacuna e traducao (com resposta e audio).
-- **Chat / conversacao guiada** com o professor, incluindo a "aula rapida por
-  IA" original e correcao de texto.
+  completar lacuna e traducao (com resposta e audio). Em japones, os exercicios
+  de escrita pedem e aceitam a resposta nas duas estruturas (kana e romaji).
+- **Japones com as tres escritas**: cada aula explica quando se usa hiragana,
+  katakana e kanji, e cada palavra mostra a escrita (kanji/kana), a leitura em
+  kana e o romaji.
+- **Chat / conversacao guiada** com o professor, com **sugestoes de assunto**
+  clicaveis por nivel e um botao para a IA propor novos assuntos. Inclui a
+  "aula rapida por IA" original e correcao de texto.
+- **Traducao automatica** (PT -> idioma) via API gratuita e sem chave
+  (MyMemory), direto do campo de mensagem.
 
 ## Pre-requisitos
 
@@ -69,6 +76,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-web.ps1
 - `POST /api/chat` — proxy de chat para o Ollama.
 - `POST /api/lesson` — gera o conteudo estruturado (JSON) de uma aula.
   Corpo: `{ "language", "level", "title", "goal" }`.
+- `POST /api/translate` — traducao via MyMemory (gratuita, sem chave).
+  Corpo: `{ "text", "from", "to" }` (codigos ISO: pt, en, es, fr, ja).
+  Observacao: a memoria comunitaria do MyMemory pode, ocasionalmente, retornar
+  traducoes imprecisas; use como apoio rapido.
 
 ## Desempenho
 

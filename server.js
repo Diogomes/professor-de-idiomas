@@ -102,6 +102,44 @@ function extractJson(text) {
 
 function buildLessonPrompt({ language, level, title, goal }) {
   const lang = languageNames[language] || "ingles";
+
+  if (language === "japones") {
+    return `Voce e um professor de japones. Crie o conteudo da aula de nivel ${level} com o tema "${title}".
+Objetivo da aula: ${goal}
+
+Em japones e essencial mostrar a ESCRITA corretamente. Para CADA palavra, preencha:
+- "term": como a palavra realmente se escreve em japones (use kanji quando for natural, junto do kana; use katakana para estrangeirismos; ou apenas hiragana);
+- "kana": a leitura completa em hiragana (ou katakana, se a palavra for em katakana);
+- "phonetic": o romaji (letras latinas);
+- "script": quais sistemas a palavra usa, por exemplo "kanji + hiragana", "somente hiragana" ou "katakana".
+
+Responda APENAS com um objeto JSON valido, sem texto fora do JSON, sem comentarios e sem markdown, exatamente neste formato:
+{
+  "intro": "1 a 2 frases em portugues apresentando o tema",
+  "writing": "explique em portugues, de forma curta, como este tema se escreve em japones: quando se usa hiragana, katakana e kanji aqui e como ler. Mostre os dois modos (kana e kanji/romaji) sempre que necessario.",
+  "vocabulary": [
+    { "term": "学生", "kana": "がくせい", "phonetic": "gakusei", "script": "kanji + hiragana", "translation": "estudante", "example": "私は学生です。", "exampleKana": "わたしはがくせいです。", "exampleRomaji": "watashi wa gakusei desu.", "exampleTranslation": "Eu sou estudante." }
+  ],
+  "grammar": "explicacao curta em portugues do ponto principal (gramatica, uso ou pronuncia)",
+  "tips": ["dica curta 1", "dica curta 2"],
+  "exercises": [
+    { "type": "multiple_choice", "question": "pergunta em portugues", "options": ["a", "b", "c", "d"], "answerIndex": 0, "explanation": "por que esta correto" },
+    { "type": "fill_blank", "question": "frase em japones (em kana) com ___ no lugar da palavra", "answer": "resposta em kana", "answerRomaji": "a mesma resposta em romaji", "translation": "traducao da frase completa" },
+    { "type": "translate", "prompt": "frase em portugues para traduzir (peca a resposta em kana E em romaji)", "answer": "traducao em japones (kanji/kana)", "answerKana": "leitura completa em kana", "answerRomaji": "leitura completa em romaji" }
+  ]
+}
+
+Regras:
+- O exemplo "学生" acima e apenas para mostrar o FORMATO; nao o copie. Gere palavras e frases que pertencam ao tema "${title}".
+- Use de 6 a 8 itens em "vocabulary", todos reais e corretos em japones.
+- Garanta que "kana", "phonetic" (romaji) e "script" correspondam exatamente ao "term".
+- Crie de 4 a 6 exercicios variados (multiple_choice, fill_blank e translate).
+- Nos exercicios de escrita (fill_blank e translate), peca e aceite a resposta nas DUAS estruturas: em kana (ou kanji) E em romaji. Preencha "answer", "answerKana" e "answerRomaji" de forma coerente.
+- Em multiple_choice, "answerIndex" e o indice (0 a 3) da opcao correta.
+- Adapte a dificuldade ao nivel ${level}.
+- Nao inclua nada alem do JSON.`;
+  }
+
   return `Voce e um professor de ${lang}. Crie o conteudo da aula de nivel ${level} com o tema "${title}".
 Objetivo da aula: ${goal}
 
@@ -111,7 +149,7 @@ Responda APENAS com um objeto JSON valido, sem texto fora do JSON, sem comentari
   "vocabulary": [
     {
       "term": "palavra ou frase em ${lang}",
-      "phonetic": "pronuncia aproximada (romaji para japones, ou transcricao simples)",
+      "phonetic": "pronuncia aproximada (transcricao simples)",
       "translation": "traducao em portugues",
       "example": "frase de exemplo em ${lang}",
       "exampleTranslation": "traducao da frase de exemplo em portugues"
@@ -128,7 +166,6 @@ Responda APENAS com um objeto JSON valido, sem texto fora do JSON, sem comentari
 
 Regras:
 - Use de 6 a 8 itens em "vocabulary", todos reais e corretos no idioma ${lang}.
-- Para japones, use kana/kanji no "term" e romaji no "phonetic".
 - Crie de 4 a 6 exercicios variados (multiple_choice, fill_blank e translate).
 - Em multiple_choice, "answerIndex" e o indice (0 a 3) da opcao correta.
 - Adapte a dificuldade ao nivel ${level}.
@@ -175,6 +212,32 @@ async function generateLesson(req, res) {
       error: "Nao foi possivel gerar a aula.",
       detail: error.message,
     });
+  }
+}
+
+// Traducao gratuita e sem chave via MyMemory, util para todos os idiomas.
+async function translateText(req, res) {
+  try {
+    const rawBody = await readRequestBody(req);
+    const { text, from = "pt", to } = JSON.parse(rawBody || "{}");
+    if (!text || !to) {
+      sendJson(res, 400, { error: "Campos obrigatorios: text, to." });
+      return;
+    }
+    const langpair = `${from}|${to}`;
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(
+      text
+    )}&langpair=${encodeURIComponent(langpair)}`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    const data = await r.json();
+    const translated = data?.responseData?.translatedText || "";
+    if (!translated) {
+      sendJson(res, 502, { error: "Servico de traducao nao retornou texto." });
+      return;
+    }
+    sendJson(res, 200, { translated, from, to });
+  } catch (error) {
+    sendJson(res, 502, { error: "Falha ao traduzir.", detail: error.message });
   }
 }
 
@@ -226,6 +289,11 @@ const server = http.createServer((req, res) => {
 
   if (req.url === "/api/lesson" && req.method === "POST") {
     generateLesson(req, res);
+    return;
+  }
+
+  if (req.url === "/api/translate" && req.method === "POST") {
+    translateText(req, res);
     return;
   }
 

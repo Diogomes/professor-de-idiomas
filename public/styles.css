@@ -498,9 +498,49 @@ h4 {
   color: #ffd9ad;
 }
 
+.suggestions-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 32px;
+  border-top: 1px solid var(--line);
+  background: rgba(5, 10, 18, 0.85);
+}
+.suggestions-label {
+  color: var(--accent-strong);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+.suggestions-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.topic-chip {
+  min-height: 32px;
+  border: 1px solid rgba(76, 132, 214, 0.45);
+  border-radius: 999px;
+  background: rgba(0, 140, 255, 0.1);
+  color: #cfe9ff;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.topic-chip:hover {
+  border-color: var(--line-bright);
+  background: rgba(0, 140, 255, 0.2);
+}
+.topic-chip.ai {
+  border-color: rgba(62, 197, 255, 0.6);
+  background: rgba(0, 140, 255, 0.18);
+}
+
 .composer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 112px;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   padding: 18px 32px 24px;
   border-top: 1px solid var(--line);
@@ -508,13 +548,19 @@ h4 {
   backdrop-filter: blur(14px);
 }
 
-.composer button {
-  align-self: end;
+.composer-actions {
+  display: grid;
+  align-content: end;
+  gap: 8px;
+  width: 120px;
+}
+
+#sendButton {
   background: linear-gradient(180deg, #129cff, #006ee8);
   color: #fff;
   box-shadow: 0 0 24px rgba(0, 140, 255, 0.42);
 }
-.composer button:hover {
+#sendButton:hover {
   background: linear-gradient(180deg, #3ec5ff, #087dff);
 }
 
@@ -777,9 +823,43 @@ h4 {
   font-size: 16px;
   color: #f1f7ff;
 }
+.vocab-term strong {
+  font-size: 18px;
+}
+.kana {
+  color: #e8f1fb;
+  font-size: 14px;
+  margin-left: 4px;
+}
 .phonetic {
   color: var(--accent-strong);
   font-size: 13px;
+}
+.script-badge {
+  display: inline-block;
+  margin-top: 4px;
+  border: 1px solid rgba(62, 197, 255, 0.4);
+  border-radius: 999px;
+  color: var(--accent-strong);
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.ex-reading {
+  color: #c4d4e6;
+  font-size: 12px;
+}
+.ex-reading.romaji {
+  color: var(--accent-strong);
+}
+.writing-block {
+  border-color: rgba(255, 196, 93, 0.4);
+  background: rgba(60, 45, 14, 0.18);
+}
+.writing-block h5 {
+  color: #ffd9ad;
 }
 .vocab-translation {
   color: var(--muted);

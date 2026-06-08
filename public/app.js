@@ -31,6 +31,8 @@ const generateLessonBtn = document.querySelector("#generateLesson");
 const practiceChatBtn = document.querySelector("#practiceChat");
 const completeLessonBtn = document.querySelector("#completeLesson");
 const lessonContentEl = document.querySelector("#lessonContent");
+const topicSuggestionsEl = document.querySelector("#topicSuggestions");
+const translateButton = document.querySelector("#translateButton");
 
 // ===== Estado =====
 const history = [];
@@ -40,10 +42,32 @@ let currentLesson = null; // { level, index, data }
 let aiAvailable = false;
 
 const languageConfig = {
-  japones: { speechLang: "ja-JP", label: "Japones" },
-  ingles: { speechLang: "en-US", label: "Ingles" },
-  espanhol: { speechLang: "es-ES", label: "Espanhol" },
-  frances: { speechLang: "fr-FR", label: "Frances" },
+  japones: { speechLang: "ja-JP", label: "Japones", code: "ja" },
+  ingles: { speechLang: "en-US", label: "Ingles", code: "en" },
+  espanhol: { speechLang: "es-ES", label: "Espanhol", code: "es" },
+  frances: { speechLang: "fr-FR", label: "Frances", code: "fr" },
+};
+
+// Assuntos sugeridos para a conversacao, por faixa de nivel.
+const conversationTopics = {
+  iniciante: [
+    "Apresentar-se", "Falar da familia", "Pedir comida", "Falar do tempo",
+    "Hobbies e lazer", "Minha rotina diaria", "No mercado", "Pedir direcoes",
+  ],
+  basico: [
+    "Apresentar-se", "Falar da familia", "Pedir comida", "Falar do tempo",
+    "Hobbies e lazer", "Minha rotina diaria", "No mercado", "Pedir direcoes",
+  ],
+  intermediario: [
+    "Planejar uma viagem", "Falar do trabalho", "Contar uma historia",
+    "Opiniao sobre filmes", "Planos para o futuro", "Falar de saude",
+    "Cultura e tradicoes", "Resolver um imprevisto",
+  ],
+  avancado: [
+    "Debate sobre tecnologia", "Atualidades e noticias", "Negociar um acordo",
+    "Cultura e identidade", "Meio ambiente", "Entrevista de emprego",
+    "Argumentar e convencer", "Humor e ironia",
+  ],
 };
 
 const femaleHints = ["female", "woman", "maria", "zira", "helena", "sabina", "lucia", "paulina", "ayumi", "haruka", "google"];
@@ -168,6 +192,71 @@ async function sendMessage(content) {
   }
 }
 
+// ===== Sugestoes de assunto e traducao =====
+function topicLevelKey() {
+  return conversationTopics[levelEl.value] ? levelEl.value : "basico";
+}
+
+function startTopic(topic) {
+  switchView("chat");
+  sendMessage(
+    `Vamos conversar sobre "${topic}". Comece a conversa: diga uma frase no idioma alvo, mostre a traducao em portugues e me faca uma pergunta simples para eu responder. Mantenha as falas curtas e corrija meus erros.`
+  );
+}
+
+function suggestTopicsAI() {
+  switchView("chat");
+  sendMessage(
+    "Sugira 5 assuntos de conversa adequados ao meu nivel e me pergunte qual deles eu prefiro praticar agora. Liste os assuntos de forma curta e numerada."
+  );
+}
+
+function renderTopics() {
+  if (!topicSuggestionsEl) return;
+  topicSuggestionsEl.textContent = "";
+  conversationTopics[topicLevelKey()].forEach((topic) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "topic-chip";
+    chip.textContent = topic;
+    chip.addEventListener("click", () => startTopic(topic));
+    topicSuggestionsEl.appendChild(chip);
+  });
+  const ai = document.createElement("button");
+  ai.type = "button";
+  ai.className = "topic-chip ai";
+  ai.textContent = "💡 Novos assuntos (IA)";
+  ai.addEventListener("click", suggestTopicsAI);
+  topicSuggestionsEl.appendChild(ai);
+}
+
+async function translateInput() {
+  const text = input.value.trim();
+  if (!text) {
+    input.focus();
+    return;
+  }
+  const cfg = languageConfig[languageEl.value] || languageConfig.ingles;
+  translateButton.disabled = true;
+  const original = translateButton.textContent;
+  translateButton.textContent = "Traduzindo...";
+  try {
+    const r = await fetch("/api/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, from: "pt", to: cfg.code }),
+    });
+    const d = await r.json();
+    if (!r.ok || !d.translated) throw new Error(d.error || `HTTP ${r.status}`);
+    addMessage("assistant", `Traducao (pt → ${cfg.label.toLowerCase()}):\n${d.translated}`);
+  } catch (e) {
+    addMessage("system", `Nao consegui traduzir: ${e.message}`);
+  } finally {
+    translateButton.disabled = false;
+    translateButton.textContent = original;
+  }
+}
+
 // ===== Progresso (localStorage) =====
 function progressKey(level) {
   return `pdi:progress:${languageEl.value}:${level}`;
@@ -214,7 +303,7 @@ function youtubeEmbedUrl(keyword) {
 
 // ===== Cache de aula gerada pela IA =====
 function lessonCacheKey(level, index) {
-  return `pdi:lesson:${languageEl.value}:${level}:${index}`;
+  return `pdi:lesson:v2:${languageEl.value}:${level}:${index}`;
 }
 function loadCachedLesson(level, index) {
   try {
@@ -345,8 +434,28 @@ function normalize(text) {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
-    .replace(/[.,!?;:'"()]/g, "")
+    .replace(/[.,!?;:'"()。、！？\s]/g, "")
     .trim();
+}
+
+function attr(s) {
+  return (s || "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+}
+
+// Respostas aceitas para um exercicio: inclui kana e romaji quando houver.
+function acceptableAnswers(exercise) {
+  const list = [exercise.answer, exercise.answerKana, exercise.answerRomaji];
+  if (Array.isArray(exercise.accept)) list.push(...exercise.accept);
+  return list.filter(Boolean).map(normalize);
+}
+
+// Texto da resposta mostrando as duas estruturas (kana / romaji) quando existirem.
+function answerDisplay(exercise) {
+  const parts = [];
+  if (exercise.answer) parts.push(exercise.answer);
+  if (exercise.answerKana && exercise.answerKana !== exercise.answer) parts.push(exercise.answerKana);
+  if (exercise.answerRomaji) parts.push(exercise.answerRomaji);
+  return parts.join("  /  ");
 }
 
 function renderLessonData(lesson) {
@@ -359,8 +468,20 @@ function renderLessonData(lesson) {
     lessonContentEl.appendChild(intro);
   }
 
+  // Escrita (japones): hiragana / katakana / kanji
+  if (lesson.writing) {
+    const w = document.createElement("section");
+    w.className = "content-block writing-block";
+    const p = document.createElement("p");
+    p.textContent = lesson.writing;
+    w.innerHTML = `<h5>Como se escreve (hiragana / katakana / kanji)</h5>`;
+    w.appendChild(p);
+    lessonContentEl.appendChild(w);
+  }
+
   // Vocabulario
   if (Array.isArray(lesson.vocabulary) && lesson.vocabulary.length) {
+    const isJa = languageEl.value === "japones";
     const section = document.createElement("section");
     section.className = "content-block";
     section.innerHTML = `<h5>Vocabulario e pronuncia</h5>`;
@@ -370,24 +491,43 @@ function renderLessonData(lesson) {
     lesson.vocabulary.forEach((item) => {
       const row = document.createElement("div");
       row.className = "vocab-item";
-      const phonetic = item.phonetic ? `<span class="phonetic">[${item.phonetic}]</span>` : "";
-      const example = item.example
-        ? `<div class="vocab-example"><span lang="target">${item.example}</span>${
-            item.exampleTranslation ? ` <em>— ${item.exampleTranslation}</em>` : ""
-          }</div>`
-        : "";
+
+      const term = item.term || "";
+      const kana = item.kana || "";
+      const romaji = item.phonetic || "";
+      const spellTarget = isJa && kana ? kana : term; // japones: soletra kana a kana
+
+      let head = `<div class="vocab-term"><strong>${term}</strong>`;
+      if (isJa && kana && kana !== term) head += ` <span class="kana">${kana}</span>`;
+      if (romaji) head += ` <span class="phonetic">[${romaji}]</span>`;
+      head += `</div>`;
+      if (isJa && item.script) head += `<span class="script-badge">${item.script}</span>`;
+
+      let example = "";
+      if (item.example) {
+        const exTrans = item.exampleTranslation ? ` <em>— ${item.exampleTranslation}</em>` : "";
+        const exReading = isJa
+          ? `${item.exampleKana ? `<div class="ex-reading">${item.exampleKana}</div>` : ""}${
+              item.exampleRomaji ? `<div class="ex-reading romaji">${item.exampleRomaji}</div>` : ""
+            }`
+          : "";
+        example = `<div class="vocab-example"><span lang="target">${item.example}</span>${exReading}${exTrans}</div>`;
+      }
+
       row.innerHTML = `
         <div class="vocab-main">
-          <div class="vocab-term"><strong>${item.term || ""}</strong> ${phonetic}</div>
+          ${head}
           <div class="vocab-translation">${item.translation || ""}</div>
           ${example}
         </div>
         <div class="vocab-audio">
-          <button class="audio-chip" type="button" data-speak="${(item.term || "").replace(/"/g, "")}">🔊 Palavra</button>
-          <button class="audio-chip" type="button" data-spell="${(item.term || "").replace(/"/g, "")}">🔡 Letra a letra</button>
+          <button class="audio-chip" type="button" data-speak="${attr(term)}">🔊 Palavra</button>
+          <button class="audio-chip" type="button" data-spell="${attr(spellTarget)}">${
+            isJa ? "🔡 Kana a kana" : "🔡 Letra a letra"
+          }</button>
           ${
             item.example
-              ? `<button class="audio-chip" type="button" data-speak="${item.example.replace(/"/g, "")}">🔊 Frase</button>`
+              ? `<button class="audio-chip" type="button" data-speak="${attr(item.example)}">🔊 Frase</button>`
               : ""
           }
         </div>`;
@@ -463,18 +603,19 @@ function renderExercise(exercise, i) {
     });
     card.appendChild(opts);
   } else if (type === "fill_blank") {
+    const isJa = languageEl.value === "japones";
     card.innerHTML = `<p class="ex-q"><span class="ex-num">${i + 1}</span> Complete: ${exercise.question || ""}</p>`;
     const wrap = document.createElement("div");
     wrap.className = "ex-input-row";
     const inp = document.createElement("input");
     inp.type = "text";
-    inp.placeholder = "Sua resposta";
+    inp.placeholder = isJa ? "Resposta em kana ou romaji" : "Sua resposta";
     const check = document.createElement("button");
     check.type = "button";
     check.className = "ghost";
     check.textContent = "Verificar";
     check.addEventListener("click", () => {
-      const ok = normalize(inp.value) === normalize(exercise.answer);
+      const ok = acceptableAnswers(exercise).includes(normalize(inp.value));
       inp.classList.toggle("correct", ok);
       inp.classList.toggle("wrong", !ok);
       showFeedback(
@@ -482,35 +623,52 @@ function renderExercise(exercise, i) {
         ok,
         ok
           ? exercise.translation || ""
-          : `Resposta: ${exercise.answer}${exercise.translation ? " — " + exercise.translation : ""}`
+          : `Resposta: ${answerDisplay(exercise)}${exercise.translation ? " — " + exercise.translation : ""}`
       );
     });
     wrap.append(inp, check);
     card.appendChild(wrap);
   } else if (type === "translate") {
-    card.innerHTML = `<p class="ex-q"><span class="ex-num">${i + 1}</span> Traduza: ${exercise.prompt || exercise.question || ""}</p>`;
+    const isJa = languageEl.value === "japones";
+    const ask = isJa ? " (responda em kana e/ou romaji)" : "";
+    card.innerHTML = `<p class="ex-q"><span class="ex-num">${i + 1}</span> Traduza${ask}: ${
+      exercise.prompt || exercise.question || ""
+    }</p>`;
     const wrap = document.createElement("div");
     wrap.className = "ex-input-row";
     const ta = document.createElement("input");
     ta.type = "text";
-    ta.placeholder = "Sua traducao";
+    ta.placeholder = isJa ? "Sua traducao (kana ou romaji)" : "Sua traducao";
+    const check = document.createElement("button");
+    check.type = "button";
+    check.className = "ghost";
+    check.textContent = "Verificar";
     const reveal = document.createElement("button");
     reveal.type = "button";
     reveal.className = "ghost";
     reveal.textContent = "Ver resposta";
-    reveal.addEventListener("click", () => {
-      showFeedback(card, null, `Resposta sugerida: ${exercise.answer}`);
-      const hear = card.querySelector(".hear-answer");
-      if (!hear) {
-        const h = document.createElement("button");
-        h.type = "button";
-        h.className = "audio-chip hear-answer";
-        h.textContent = "🔊 Ouvir resposta";
-        h.addEventListener("click", () => speak(exercise.answer));
-        card.appendChild(h);
-      }
+    const addHear = () => {
+      if (card.querySelector(".hear-answer")) return;
+      const h = document.createElement("button");
+      h.type = "button";
+      h.className = "audio-chip hear-answer";
+      h.textContent = "🔊 Ouvir resposta";
+      h.addEventListener("click", () => speak(exercise.answer));
+      card.appendChild(h);
+    };
+    check.addEventListener("click", () => {
+      const accepts = acceptableAnswers(exercise);
+      const ok = accepts.length > 0 && accepts.includes(normalize(ta.value));
+      ta.classList.toggle("correct", ok);
+      ta.classList.toggle("wrong", !ok);
+      showFeedback(card, ok, ok ? "" : `Resposta sugerida: ${answerDisplay(exercise)}`);
+      addHear();
     });
-    wrap.append(ta, reveal);
+    reveal.addEventListener("click", () => {
+      showFeedback(card, null, `Resposta sugerida: ${answerDisplay(exercise)}`);
+      addHear();
+    });
+    wrap.append(ta, check, reveal);
     card.appendChild(wrap);
   } else {
     card.innerHTML = `<p class="ex-q"><span class="ex-num">${i + 1}</span> ${exercise.question || exercise.prompt || ""}</p>`;
@@ -574,6 +732,7 @@ function switchView(view) {
   viewTabs.forEach((t) => t.classList.toggle("active", t.dataset.view === view));
   document.querySelector("#view-trilha").classList.toggle("active", view === "trilha");
   document.querySelector("#view-chat").classList.toggle("active", view === "chat");
+  if (view === "chat") renderTopics();
 }
 viewTabs.forEach((tab) => tab.addEventListener("click", () => switchView(tab.dataset.view)));
 
@@ -587,7 +746,11 @@ levelTabs.forEach((button) => {
 
 languageEl.addEventListener("change", () => {
   renderLessonPlans();
+  renderTopics();
 });
+
+levelEl.addEventListener("change", renderTopics);
+translateButton.addEventListener("click", translateInput);
 
 // ===== Chat: submit =====
 form.addEventListener("submit", (event) => {
@@ -630,9 +793,10 @@ if ("speechSynthesis" in window) {
 }
 
 renderLessonPlans();
+renderTopics();
 checkHealth();
 
 addMessage(
   "assistant",
-  "Bem-vindo ao laboratorio de idiomas da Gigaverse 3D. Use a Trilha de aulas para seguir as 50 aulas graduais de cada nivel (com imagem, video, audio e exercicios), ou venha ao Chat para uma aula rapida e conversacao guiada."
+  "Bem-vindo ao laboratorio de idiomas da Gigaverse 3D. Use a Trilha de aulas para seguir as 50 aulas graduais de cada nivel (com imagem, video, audio e exercicios), ou escolha um assunto sugerido abaixo para comecar uma conversa guiada. Tambem da para escrever em portugues e tocar em Traduzir."
 );

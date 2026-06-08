@@ -107,13 +107,22 @@
         <!-- VISAO: CHAT -->
         <div id="view-chat" class="view">
           <div id="messages" class="messages scroll-area" aria-live="polite"></div>
+
+          <div class="suggestions-bar">
+            <span class="suggestions-label">Sugestoes de assunto</span>
+            <div id="topicSuggestions" class="suggestions-chips"></div>
+          </div>
+
           <form id="chatForm" class="composer">
             <textarea
               id="messageInput"
               rows="3"
               placeholder="Escreva sua pergunta, peca uma aula ou pratique uma frase..."
             ></textarea>
-            <button id="sendButton" type="submit">Enviar</button>
+            <div class="composer-actions">
+              <button id="sendButton" type="submit">Enviar</button>
+              <button id="translateButton" class="ghost" type="button" title="Traduzir o texto do campo">Traduzir</button>
+            </div>
           </form>
         </div>
       </section>
