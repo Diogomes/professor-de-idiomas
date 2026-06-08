@@ -102,7 +102,9 @@ function extractJson(text) {
 
 function buildLessonPrompt({ language, level, title, goal }) {
   const lang = languageNames[language] || "ingles";
-  const isAlphabet = /alfabeto|som|pronuncia|vogai|letra|silab/i.test(title || "");
+  const isAlphabet = /alfabeto|som|pronuncia|vogai|letra|silab|escrita|leitura|romaj|kana|kanji|hiragana|katakana/i.test(
+    title || ""
+  );
 
   if (language === "japones") {
     const alphabetNote = isAlphabet

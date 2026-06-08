@@ -416,6 +416,13 @@ function youtubeSearchUrl(keyword) {
   const query = `${languageConfig[languageEl.value].label} ${keyword} aula para iniciantes`;
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
 }
+// Busca coerente por aula: idioma + nivel + titulo da aula (em PT, descritivo).
+function lessonVideoQuery(plan, level) {
+  return `aula de ${targetConfig().label} ${level}: ${plan.t}`;
+}
+function youtubeSearchUrlFor(query) {
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+}
 function youtubeEmbedUrl(keyword) {
   const query = `${languageConfig[languageEl.value].label} ${keyword} aula`;
   return `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(query)}`;
@@ -469,7 +476,7 @@ function buildKanaSection() {
 
 // ===== Cache de aula gerada pela IA =====
 function lessonCacheKey(level, index) {
-  return `pdi:lesson:v2:${languageEl.value}:${level}:${index}`;
+  return `pdi:lesson:v3:${languageEl.value}:${level}:${index}`;
 }
 function loadCachedLesson(level, index) {
   try {
@@ -528,14 +535,19 @@ function openLesson(level, index) {
   };
   lessonImageEl.parentElement.classList.remove("img-fallback");
 
-  // Video: usa o video fixado para o idioma atual, se houver; senao, busca.
+  // Video: embute o video fixado (se houver); senao, busca coerente no YouTube.
+  // O embed de busca do YouTube foi descontinuado, entao sem video fixado
+  // mostramos apenas o link de busca (sempre funciona e on-topic).
   const pinned = pinnedVideoId(plan);
   currentLesson.kana = !!plan.kana && languageEl.value === "japones";
-  watchYoutubeLink.href = pinned ? youtubeWatchById(pinned) : youtubeSearchUrl(plan.k);
+  watchYoutubeLink.href = pinned
+    ? youtubeWatchById(pinned)
+    : youtubeSearchUrlFor(lessonVideoQuery(plan, level));
+  watchHereBtn.style.display = pinned ? "" : "none";
   videoPosterEl.classList.remove("playing");
   videoPosterEl.innerHTML = pinned
     ? '<span class="play-icon">▶</span><p>Video-aula recomendada</p>'
-    : '<span class="play-icon">▶</span><p>Video-aula do tema</p>';
+    : '<span class="play-icon">🔎</span><p>Buscar video-aula deste tema no YouTube</p>';
 
   // Estado do conteudo
   const cached = loadCachedLesson(level, index);
@@ -873,9 +885,13 @@ watchHereBtn.addEventListener("click", () => {
   if (!currentLesson) return;
   const plan = curriculum[currentLesson.level][currentLesson.index];
   const pinned = pinnedVideoId(plan);
-  const src = pinned ? youtubeEmbedById(pinned) : youtubeEmbedUrl(plan.k);
+  if (!pinned) {
+    // Sem video fixado nao ha embed confiavel: abre a busca no YouTube.
+    window.open(watchYoutubeLink.href, "_blank", "noreferrer");
+    return;
+  }
   videoPosterEl.classList.add("playing");
-  videoPosterEl.innerHTML = `<iframe src="${src}" title="Video-aula"
+  videoPosterEl.innerHTML = `<iframe src="${youtubeEmbedById(pinned)}" title="Video-aula"
     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
     allowfullscreen referrerpolicy="origin"></iframe>`;
 });
