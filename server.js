@@ -426,36 +426,117 @@ async function generateLesson(req, res) {
 
 // System prompt do tutor de conversa: forca saida estruturada separando o
 // idioma-alvo (escrita nativa) da explicacao em portugues do Brasil.
+// Objetivo: conversa natural (o tutor reage e puxa o assunto) + correcao
+// explicita dos erros do aluno, funcionando igual para todos os idiomas.
 function buildTutorPrompt({ language, level, mode }) {
   const lang = languageNames[language] || "ingles";
   const latin = language !== "japones"; // japones usa escrita nao-latina
 
-  return `Voce e um tutor particular de ${lang} para um aluno brasileiro (idioma nativo: portugues do Brasil).
-Nivel do aluno: ${level}. Modo: ${mode}.
+  // Exemplo COMPLETO e realista por idioma. Modelos pequenos copiam o que veem:
+  // por isso todos os campos tem valores reais (nunca descricoes), "alvo" e uma
+  // reacao diferente de "corrigido" e de "pergunta_alvo", e os campos _pt estao
+  // de fato em portugues. Isso evita que o modelo ecoe placeholders ou duplique.
+  const examples = {
+    ingles: {
+      correcao: "Pequena correcao: use 'have' (nao 'has') e o plural 'brothers'.",
+      corrigido: "I have two brothers and I am happy.",
+      alvo: "Nice to meet you, John! Two brothers, that's lovely.",
+      leitura: "",
+      traducao_pt: "Prazer em conhecer, John! Dois irmaos, que legal.",
+      explicacao_pt: "Com 'I' usamos 'have', e o plural de 'brother' e 'brothers'.",
+      pergunta_alvo: "How old are your brothers?",
+      pergunta_pt: "Quantos anos seus irmaos tem?",
+    },
+    espanhol: {
+      correcao: "Quase! O certo e 'me llamo Maria' e o plural 'dos perros'.",
+      corrigido: "Hola, me llamo Maria y tengo dos perros.",
+      alvo: "¡Hola, Maria! Me encantan los perros.",
+      leitura: "",
+      traducao_pt: "Ola, Maria! Eu adoro cachorros.",
+      explicacao_pt: "Para dizer o nome use 'me llamo'; o plural de 'perro' e 'perros'.",
+      pergunta_alvo: "¿Cómo se llaman tus perros?",
+      pergunta_pt: "Como se chamam seus cachorros?",
+    },
+    frances: {
+      correcao: "Pequeno ajuste: 'j'ai' (e nao 'je a') e o plural 'freres'.",
+      corrigido: "J'ai deux freres.",
+      alvo: "Enchante, Jean ! Deux freres, c'est super.",
+      leitura: "",
+      traducao_pt: "Prazer, Jean! Dois irmaos, que otimo.",
+      explicacao_pt: "O verbo 'avoir' na 1a pessoa e 'j'ai'; o plural de 'frere' e 'freres'.",
+      pergunta_alvo: "Quel âge ont tes freres ?",
+      pergunta_pt: "Quantos anos seus irmaos tem?",
+    },
+    japones: {
+      correcao: "Quase! O certo e 'わたしのなまえは...です'.",
+      corrigido: "わたしのなまえはジョンです。",
+      alvo: "はじめまして、ジョンさん！",
+      leitura: "hajimemashite, Jon-san! shumi wa nan desu ka?",
+      traducao_pt: "Prazer em conhece-lo, John!",
+      explicacao_pt: "Para se apresentar: なまえ (nome) + は + [seu nome] + です.",
+      pergunta_alvo: "しゅみはなんですか。",
+      pergunta_pt: "Qual e o seu hobby?",
+    },
+  };
+  const ex = examples[language] || examples.ingles;
+  const exampleJson = JSON.stringify(ex, null, 2);
 
-Responda SEMPRE com um unico objeto JSON valido, sem texto fora do JSON, sem markdown, neste formato:
+  return `Voce e um tutor particular de ${lang} conversando com um aluno brasileiro (idioma nativo: portugues do Brasil).
+Nivel do aluno: ${level}. Modo: ${mode}.
+Seu papel: manter uma conversa NATURAL no idioma-alvo (${lang}), reagindo ao que o aluno diz, e CORRIGIR os erros dele de forma gentil.
+
+Responda SEMPRE com um unico objeto JSON valido, sem texto fora do JSON, sem markdown, com EXATAMENTE estes campos:
 {
-  "alvo": "frase ou expressao no idioma-alvo (${lang}), escrita na ESCRITA NATIVA do idioma",
-  "leitura": ${latin ? '""' : '"romanizacao (romaji) da frase de alvo"'},
-  "traducao_pt": "traducao da frase de alvo em portugues do Brasil",
-  "explicacao_pt": "explicacao didatica curta em portugues do Brasil (gramatica, uso, correcao)",
-  "pergunta_alvo": "uma pergunta curta no idioma-alvo (${lang}), escrita nativa, para o aluno responder",
+  "correcao": "comentario curto em portugues do Brasil sobre o erro do aluno; \\"\\" se nao houver erro ou for a primeira fala",
+  "corrigido": "a frase do aluno reescrita CORRETA no idioma-alvo (${lang}), escrita nativa; \\"\\" se nao houver o que corrigir",
+  "alvo": "a resposta NATURAL do tutor no idioma-alvo (${lang}), reagindo ao que o aluno disse. NAO repita a pergunta aqui",
+  "leitura": ${latin ? '""' : '"romanizacao (romaji) de alvo + pergunta_alvo"'},
+  "traducao_pt": "traducao de 'alvo' em portugues do Brasil",
+  "explicacao_pt": "dica didatica curta em portugues do Brasil (gramatica, uso ou vocabulario)",
+  "pergunta_alvo": "uma pergunta NOVA no idioma-alvo (${lang}) para o aluno responder. Deve ser DIFERENTE de 'alvo'",
   "pergunta_pt": "a mesma pergunta traduzida em portugues do Brasil"
 }
 
+Exemplo de saida bem formada (apenas o FORMATO; gere conteudo proprio para a conversa real):
+${exampleJson}
+
 Regras OBRIGATORIAS:
-- "alvo" e "pergunta_alvo" devem estar 100% no idioma-alvo (${lang}) e na escrita nativa. NUNCA escreva portugues nesses campos.
-- "traducao_pt", "explicacao_pt" e "pergunta_pt" devem estar em portugues do Brasil.
-- Nunca misture os dois idiomas no mesmo campo.
+- "corrigido", "alvo" e "pergunta_alvo" devem estar 100% no idioma-alvo (${lang}) e na escrita nativa. NUNCA escreva portugues nesses campos.
+- "correcao", "traducao_pt", "explicacao_pt" e "pergunta_pt" devem estar SOMENTE em portugues do Brasil. NUNCA escreva ${lang} nesses campos.
+- Nunca misture os dois idiomas dentro do mesmo campo.
+- "pergunta_alvo" tem que ser uma pergunta NOVA e DIFERENTE de "alvo" (nao copie a mesma frase nos dois campos).
 ${
   latin
     ? '- O idioma-alvo usa alfabeto latino: deixe "leitura" como string vazia "".'
-    : '- O idioma-alvo nao usa alfabeto latino: preencha "leitura" com a romanizacao (romaji) da frase de alvo.'
+    : '- O idioma-alvo (japones) NAO usa alfabeto latino: preencha "leitura" com a romanizacao (romaji) correta de "alvo" e "pergunta_alvo". Ex.: わたしのなまえ = "watashi no namae".'
 }
-- Adapte a dificuldade ao nivel ${level} e ao modo ${mode}.
-- Se o aluno escrever no idioma-alvo, corrija em "explicacao_pt" e modele a forma correta em "alvo".
-- Se o pedido for "meta" (listar assuntos, dar instrucoes, sem frase de exemplo), deixe "alvo", "leitura", "pergunta_alvo" e "pergunta_pt" como "" e escreva a resposta em "explicacao_pt".
+- Se o aluno escreveu certo (ou e a primeira fala), deixe "correcao" e "corrigido" como "".
+- Adapte a dificuldade ao nivel ${level} e ao modo ${mode}; mantenha as falas curtas e conversacionais.
+- Se o pedido for "meta" (listar assuntos, dar instrucoes, sem frase de exemplo), deixe "correcao", "corrigido", "alvo", "leitura", "pergunta_alvo" e "pergunta_pt" como "" e escreva a resposta em "explicacao_pt".
 - Nao inclua nada alem do JSON.`;
+}
+
+// Normaliza a resposta do tutor: garante strings, evita que "pergunta_alvo"
+// seja identica a "alvo" (o modelo pequeno tende a duplicar) e remove um
+// "corrigido" redundante quando nao ha de fato correcao.
+function sanitizeTutor(parsed) {
+  const t = { ...parsed };
+  const norm = (v) => (typeof v === "string" ? v.trim() : "");
+  for (const key of ["correcao", "corrigido", "alvo", "leitura", "traducao_pt", "explicacao_pt", "pergunta_alvo", "pergunta_pt"]) {
+    t[key] = norm(t[key]);
+  }
+  // Se a pergunta repete exatamente a fala do tutor, descarta a duplicata:
+  // a pergunta e o que move a conversa, entao mantemos ela e zeramos "alvo".
+  if (t.alvo && t.pergunta_alvo && t.alvo === t.pergunta_alvo) {
+    t.alvo = "";
+    t.traducao_pt = "";
+  }
+  // "corrigido" so faz sentido quando ha uma correcao; senao vira ruido.
+  if (t.corrigido && !t.correcao) {
+    // mantem corrigido apenas se diferir de alvo (evita eco da propria resposta)
+    if (t.corrigido === t.alvo) t.corrigido = "";
+  }
+  return t;
 }
 
 async function tutorReply(req, res) {
@@ -494,7 +575,7 @@ async function tutorReply(req, res) {
       return;
     }
 
-    sendJson(res, 200, { tutor: parsed });
+    sendJson(res, 200, { tutor: sanitizeTutor(parsed) });
   } catch (error) {
     sendJson(res, 500, { error: "Nao foi possivel falar com o tutor.", detail: error.message });
   }
