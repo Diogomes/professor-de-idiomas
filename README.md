@@ -69,6 +69,44 @@ dentro do instalador (por isso ele e pequeno): e baixado na primeira execucao.
 > Observacao: tambem da para rodar so o servidor web (sem janela), como antes,
 > com `npm run server` e acessar `http://localhost:3000`.
 
+## Versao web (GitHub Pages) - IA no proprio navegador
+
+A interface tambem roda como **site estatico no GitHub Pages**, sem servidor e
+sem Ollama: nesse modo a IA roda **dentro do navegador** via
+[WebLLM](https://github.com/mlc-ai/web-llm) (WebGPU). O mesmo codigo serve aos
+dois cenarios — uma camada de deteccao (`AI` em `public/app.js`) escolhe o
+backend automaticamente:
+
+- **Com servidor local (app desktop / `npm run server`):** usa o Ollama via
+  `/api/*` (rapido, ja existente).
+- **Sem servidor (GitHub Pages):** carrega um modelo Qwen no navegador (WebLLM)
+  e gera aulas e conversa localmente. Os prompts, o parsing e a romanizacao
+  ficam em `public/llm-core.js`, compartilhados pelos dois caminhos, para nunca
+  divergirem.
+
+O que funciona no Pages: trilha, aulas por IA, conversa (correcao + dialogo
+natural), audio (TTS), microfone (STT) e traducao (MyMemory direto do
+navegador).
+
+### Requisitos do modo navegador
+
+- Navegador com **WebGPU**: Chrome/Edge 113+ (ou Safari 18+). Sem WebGPU a UI
+  avisa e sugere o app desktop.
+- **Primeira aula baixa o modelo (~1 GB)**; depois fica em cache no navegador e
+  funciona offline.
+
+### Publicar no GitHub Pages
+
+1. O workflow `.github/workflows/deploy-pages.yml` publica a pasta `public/` a
+   cada push na `main` (ou manualmente em Actions > Run workflow).
+2. Em **Settings > Pages**, defina **Source: GitHub Actions**.
+3. A URL final aparece no job (ex.: `https://<usuario>.github.io/<repo>/`). Para
+   ficar `https://<usuario>.github.io/idiomas`, renomeie o repositorio para
+   `idiomas` em **Settings > General**.
+
+> Todos os caminhos internos sao relativos, entao o site funciona em qualquer
+> subpasta (`/professor-de-idiomas/`, `/idiomas/`, etc.).
+
 ## Pre-requisitos (modo servidor)
 
 - Node.js 18+ (testado com Node 22).
@@ -129,6 +167,10 @@ gerada uma vez por idioma.
 
 - `server.js` — servidor HTTP: arquivos estaticos + proxy/geracao via Ollama.
 - `public/` — interface (HTML, CSS, JS) e o curriculo (`curriculum.js`).
+- `public/llm-core.js` — logica de IA (prompts, parsing, romaji) compartilhada
+  entre o servidor (Ollama) e o navegador (WebLLM).
+- `public/webllm-client.js` — roda o modelo no navegador (WebGPU) para a versao
+  GitHub Pages.
 - `prompts/` — prompt de sistema do professor.
 - `Modelfile.professor` — definicao do modelo Ollama.
 - `scripts/` — comandos auxiliares (PowerShell e `start-linux.sh`).

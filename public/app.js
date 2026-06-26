@@ -117,6 +117,134 @@ const maleHints = ["male", "man", "david", "mark", "daniel", "pablo", "jorge", "
 
 const curriculum = window.CURRICULUM || { basico: [], intermediario: [], avancado: [] };
 
+// ===== Camada de IA: servidor (Ollama) OU navegador (WebLLM) =====
+// No app desktop existe o servidor local com Ollama, e usamos /api/*. Na versao
+// GitHub Pages nao ha servidor: caimos para o WebLLM, que roda o modelo no
+// proprio navegador (WebGPU). Os DOIS caminhos usam o mesmo LLMCore (prompts,
+// parsing, romaji), entao o comportamento e identico.
+function browserProgress(report) {
+  const pct = Math.round((report.progress || 0) * 100);
+  if (aiStatusEl) {
+    aiStatusEl.classList.remove("off");
+    aiStatusEl.classList.add("ok");
+    aiStatusEl.textContent = `Carregando IA no navegador... ${pct}%`;
+  }
+  if (statusEl) statusEl.textContent = `IA ${pct}%`;
+}
+
+const AI = {
+  mode: null, // "server" | "browser"
+  modelReady: false,
+
+  async detect() {
+    try {
+      const r = await fetch("api/health", { signal: AbortSignal.timeout(2500) });
+      if (r.ok) {
+        const d = await r.json();
+        if (d.ollamaOk) {
+          this.mode = "server";
+          return d;
+        }
+      }
+    } catch {
+      /* sem servidor local: vamos para o navegador */
+    }
+    this.mode = "browser";
+    return null;
+  },
+
+  isBrowser() {
+    return this.mode === "browser";
+  },
+
+  // Garante que o modelo do navegador esteja carregado (baixa na 1a vez).
+  async ensureBrowserModel() {
+    if (this.modelReady) return;
+    if (!window.WebLLMClient) throw new Error("WebLLM nao carregou.");
+    if (!window.WebLLMClient.isSupported()) {
+      throw new Error(
+        "Seu navegador nao tem WebGPU. Use Chrome ou Edge atualizados (ou o app desktop) para a IA."
+      );
+    }
+    await window.WebLLMClient.load(undefined, browserProgress);
+    this.modelReady = true;
+    if (aiStatusEl) {
+      aiStatusEl.textContent = "IA no navegador ativa";
+      aiStatusEl.classList.add("ok");
+    }
+  },
+
+  async lesson({ language, level, title, goal }) {
+    if (!this.mode) await this.detect();
+    if (this.mode === "server") {
+      const res = await fetch("api/lesson", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language, level, title, goal }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.lesson) throw new Error(data.error || `HTTP ${res.status}`);
+      return data.lesson;
+    }
+    // Navegador (WebLLM)
+    const fixed = window.LLMCore.fixedLesson({ language, title });
+    if (fixed) return fixed;
+    await this.ensureBrowserModel();
+    const prompt = window.LLMCore.buildLessonPrompt({ language, level, title, goal });
+    const content = await window.WebLLMClient.chatJSON([{ role: "user", content: prompt }]);
+    const lesson = window.LLMCore.parseLessonContent(content);
+    if (!lesson) throw new Error("O modelo nao retornou uma aula valida. Tente de novo.");
+    return lesson;
+  },
+
+  async tutor({ language, level, mode, messages }) {
+    if (!this.mode) await this.detect();
+    if (this.mode === "server") {
+      const res = await fetch("api/tutor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language, level, mode, messages }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.tutor) throw new Error(data.error || `HTTP ${res.status}`);
+      return data.tutor;
+    }
+    // Navegador (WebLLM)
+    await this.ensureBrowserModel();
+    const system = window.LLMCore.buildTutorPrompt({ language, level, mode });
+    const content = await window.WebLLMClient.chatJSON([
+      { role: "system", content: system },
+      ...messages,
+    ]);
+    const tutor = window.LLMCore.parseTutorContent(content, language);
+    if (!tutor) throw new Error("O tutor nao retornou um JSON valido. Tente de novo.");
+    return tutor;
+  },
+
+  async translate({ text, from, to }) {
+    if (!this.mode) await this.detect();
+    if (this.mode === "server") {
+      const r = await fetch("api/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, from, to }),
+      });
+      const d = await r.json();
+      if (!r.ok || !d.translated) throw new Error(d.error || `HTTP ${r.status}`);
+      return d.translated;
+    }
+    // Navegador: chama o MyMemory direto (API publica, com CORS).
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(
+      text
+    )}&langpair=${encodeURIComponent(`${from}|${to}`)}`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    const d = await r.json();
+    const translated = d?.responseData?.translatedText || "";
+    if (!translated) throw new Error("Servico de traducao nao retornou texto.");
+    return translated;
+  },
+};
+
 // ===== Audio (Web Speech) =====
 function refreshVoices() {
   if (!("speechSynthesis" in window)) return;
@@ -325,22 +453,12 @@ async function sendMessage(content) {
   input.disabled = true;
 
   try {
-    const response = await fetch("/api/tutor", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        language: languageEl.value,
-        level: levelLabel(),
-        mode: convMode === "oral" ? "conversacao oral natural" : "conversacao natural",
-        messages: history.slice(-10),
-      }),
+    const fields = await AI.tutor({
+      language: languageEl.value,
+      level: levelLabel(),
+      mode: convMode === "oral" ? "conversacao oral natural" : "conversacao natural",
+      messages: history.slice(-10),
     });
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error(err.error || `HTTP ${response.status}`);
-    }
-    const data = await response.json();
-    const fields = data.tutor || {};
     addTutorMessage(fields);
 
     // Guarda no historico um texto legivel (para o modelo manter contexto).
@@ -424,15 +542,9 @@ async function translateInput() {
   const original = translateButton.textContent;
   translateButton.textContent = "Traduzindo...";
   try {
-    const r = await fetch("/api/translate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, from: "pt", to: cfg.code }),
-    });
-    const d = await r.json();
-    if (!r.ok || !d.translated) throw new Error(d.error || `HTTP ${r.status}`);
+    const translated = await AI.translate({ text, from: "pt", to: cfg.code });
     // Texto-alvo com audio; o PT (origem) fica como referencia, sem audio.
-    addTutorMessage({ alvo: d.translated, traducao_pt: text });
+    addTutorMessage({ alvo: translated, traducao_pt: text });
   } catch (e) {
     addMessage("system", `Nao consegui traduzir: ${e.message}`);
   } finally {
@@ -714,21 +826,15 @@ async function generateLesson() {
   lessonContentEl.innerHTML = `<div class="loading">A IA local esta montando a aula... isso pode levar alguns segundos.</div>`;
 
   try {
-    const res = await fetch("/api/lesson", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ language: languageEl.value, level, title: plan.t, goal: plan.g }),
-    });
-    const data = await res.json();
-    if (!res.ok || !data.lesson) throw new Error(data.error || `HTTP ${res.status}`);
+    const lesson = await AI.lesson({ language: languageEl.value, level, title: plan.t, goal: plan.g });
 
-    currentLesson.data = data.lesson;
-    saveCachedLesson(level, index, data.lesson);
-    renderLessonData(data.lesson);
+    currentLesson.data = lesson;
+    saveCachedLesson(level, index, lesson);
+    renderLessonData(lesson);
   } catch (error) {
     lessonContentEl.innerHTML = `<div class="empty-content error">
       <p>Nao foi possivel gerar o conteudo: ${error.message}</p>
-      <p>Verifique se o Ollama esta ativo e tente novamente. Voce ainda pode usar a imagem, o video e o chat.</p>
+      <p>Tente novamente. Voce ainda pode usar a imagem, o video e o chat.</p>
     </div>`;
   } finally {
     generateLessonBtn.disabled = false;
@@ -1128,19 +1234,13 @@ async function generateQuickLesson(topicArg) {
   statusEl.textContent = "Pensando";
 
   try {
-    const res = await fetch("/api/lesson", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        language: languageEl.value,
-        level: levelLabel(),
-        title: topic,
-        goal: `Aula rapida sobre ${topic} no nivel ${levelLabel()}.`,
-      }),
+    const lesson = await AI.lesson({
+      language: languageEl.value,
+      level: levelLabel(),
+      title: topic,
+      goal: `Aula rapida sobre ${topic} no nivel ${levelLabel()}.`,
     });
-    const data = await res.json();
-    if (!res.ok || !data.lesson) throw new Error(data.error || `HTTP ${res.status}`);
-    renderLessonData(data.lesson, quickLessonEl);
+    renderLessonData(lesson, quickLessonEl);
     statusEl.textContent = "Pronto";
   } catch (e) {
     quickLessonEl.innerHTML = `<div class="empty-content error"><p>Nao foi possivel gerar a aula: ${e.message}</p></div>`;
@@ -1241,19 +1341,25 @@ micButton.addEventListener("click", () => {
 
 // ===== Health / status da IA =====
 async function checkHealth() {
-  try {
-    const r = await fetch("/api/health");
-    const d = await r.json();
-    aiAvailable = !!d.ollamaOk;
-    if (d.ollamaOk) {
-      aiStatusEl.textContent = `IA local ativa (${d.models.length} modelo(s))`;
-      aiStatusEl.classList.add("ok");
-    } else {
-      aiStatusEl.textContent = "IA local offline - inicie o Ollama";
-      aiStatusEl.classList.add("off");
-    }
-  } catch {
-    aiStatusEl.textContent = "Servidor sem resposta";
+  const d = await AI.detect();
+  if (AI.mode === "server") {
+    aiAvailable = true;
+    const n = (d && d.models ? d.models.length : 0);
+    aiStatusEl.textContent = `IA local ativa (${n} modelo(s))`;
+    aiStatusEl.classList.remove("off");
+    aiStatusEl.classList.add("ok");
+    return;
+  }
+  // Sem servidor: IA roda no navegador (WebLLM), se houver WebGPU.
+  const supported = !!(window.WebLLMClient && window.WebLLMClient.isSupported());
+  aiAvailable = supported;
+  if (supported) {
+    aiStatusEl.textContent = "IA no navegador (WebLLM) — baixa o modelo na 1a aula";
+    aiStatusEl.classList.remove("off");
+    aiStatusEl.classList.add("ok");
+  } else {
+    aiStatusEl.textContent = "IA precisa de WebGPU (use Chrome/Edge atualizados)";
+    aiStatusEl.classList.remove("ok");
     aiStatusEl.classList.add("off");
   }
 }
