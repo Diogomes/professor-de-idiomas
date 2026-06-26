@@ -136,6 +136,115 @@ function japaneseNumberReading(n) {
   return [`${prefixKana}じゅう${onesKana}`, `${prefixRomaji}juu ${onesRomaji}`.trim()];
 }
 
+// Transliteracao deterministica kana -> romaji (estilo Hepburn). Modelos
+// pequenos erram o romaji ("okane mae" em vez de "onamae"), mas acertam o
+// kana. Entao pedimos o kana e romanizamos aqui, sem dependencias externas.
+// Kanji e outros caracteres passam intactos (nao temos dicionario de leituras).
+const KANA_DIGRAPHS = {
+  きゃ: "kya", きゅ: "kyu", きょ: "kyo",
+  しゃ: "sha", しゅ: "shu", しょ: "sho",
+  ちゃ: "cha", ちゅ: "chu", ちょ: "cho",
+  にゃ: "nya", にゅ: "nyu", にょ: "nyo",
+  ひゃ: "hya", ひゅ: "hyu", ひょ: "hyo",
+  みゃ: "mya", みゅ: "myu", みょ: "myo",
+  りゃ: "rya", りゅ: "ryu", りょ: "ryo",
+  ぎゃ: "gya", ぎゅ: "gyu", ぎょ: "gyo",
+  じゃ: "ja", じゅ: "ju", じょ: "jo",
+  ぢゃ: "ja", ぢゅ: "ju", ぢょ: "jo",
+  びゃ: "bya", びゅ: "byu", びょ: "byo",
+  ぴゃ: "pya", ぴゅ: "pyu", ぴょ: "pyo",
+};
+const KANA_MONO = {
+  あ: "a", い: "i", う: "u", え: "e", お: "o",
+  か: "ka", き: "ki", く: "ku", け: "ke", こ: "ko",
+  が: "ga", ぎ: "gi", ぐ: "gu", げ: "ge", ご: "go",
+  さ: "sa", し: "shi", す: "su", せ: "se", そ: "so",
+  ざ: "za", じ: "ji", ず: "zu", ぜ: "ze", ぞ: "zo",
+  た: "ta", ち: "chi", つ: "tsu", て: "te", と: "to",
+  だ: "da", ぢ: "ji", づ: "zu", で: "de", ど: "do",
+  な: "na", に: "ni", ぬ: "nu", ね: "ne", の: "no",
+  は: "ha", ひ: "hi", ふ: "fu", へ: "he", ほ: "ho",
+  ば: "ba", び: "bi", ぶ: "bu", べ: "be", ぼ: "bo",
+  ぱ: "pa", ぴ: "pi", ぷ: "pu", ぺ: "pe", ぽ: "po",
+  ま: "ma", み: "mi", む: "mu", め: "me", も: "mo",
+  や: "ya", ゆ: "yu", よ: "yo",
+  ら: "ra", り: "ri", る: "ru", れ: "re", ろ: "ro",
+  わ: "wa", を: "o", ん: "n", ゔ: "vu",
+  ぁ: "a", ぃ: "i", ぅ: "u", ぇ: "e", ぉ: "o",
+  ゃ: "ya", ゅ: "yu", ょ: "yo",
+  "　": " ", "、": ", ", "。": ".", "！": "!", "？": "?",
+};
+const VOWELS = new Set(["a", "i", "u", "e", "o"]);
+
+function kanaToRomaji(input) {
+  if (!input) return "";
+  // Katakana -> hiragana (mesma fonetica), exceto o prolongador ー.
+  let s = "";
+  for (const ch of input) {
+    const code = ch.codePointAt(0);
+    if (code >= 0x30a1 && code <= 0x30f6) s += String.fromCodePoint(code - 0x60);
+    else s += ch;
+  }
+
+  const chars = Array.from(s);
+  let out = "";
+  let sokuon = false; // っ pendente: dobra a proxima consoante
+  let i = 0;
+  while (i < chars.length) {
+    const c = chars[i];
+    const pair = c + (chars[i + 1] || "");
+
+    if (c === "っ" || c === "ッ") {
+      sokuon = true;
+      i += 1;
+      continue;
+    }
+
+    // Particulas は/へ isoladas (entre espacos) se pronunciam "wa"/"e".
+    if (c === "は" || c === "へ") {
+      const prev = chars[i - 1];
+      const next = chars[i + 1];
+      const atBoundary = (s) => s === undefined || s === " " || s === "　" || "、。！？".includes(s);
+      if ((prev === " " || prev === "　") && atBoundary(next)) {
+        out += c === "は" ? "wa" : "e";
+        i += 1;
+        continue;
+      }
+    }
+
+    let romaji = null;
+    let step = 1;
+    if (KANA_DIGRAPHS[pair]) {
+      romaji = KANA_DIGRAPHS[pair];
+      step = 2;
+    } else if (KANA_MONO[c]) {
+      romaji = KANA_MONO[c];
+    } else if (c === "ー") {
+      // Prolonga a ultima vogal emitida (ex.: コーヒー -> koohii).
+      const last = out[out.length - 1];
+      if (VOWELS.has(last)) out += last;
+      i += 1;
+      continue;
+    }
+
+    if (romaji == null) {
+      // Kanji ou caractere sem mapeamento: passa intacto.
+      out += c;
+      i += step;
+      continue;
+    }
+
+    if (sokuon) {
+      // Hepburn: っち -> tchi; demais dobram a 1a consoante.
+      out += romaji.startsWith("ch") ? "t" : romaji[0];
+      sokuon = false;
+    }
+    out += romaji;
+    i += step;
+  }
+  return out;
+}
+
 function buildJapaneseNumbersLesson() {
   const vocabulary = Array.from({ length: 100 }, (_, index) => {
     const number = index + 1;
@@ -471,7 +580,8 @@ function buildTutorPrompt({ language, level, mode }) {
       correcao: "Quase! O certo e 'わたしのなまえは...です'.",
       corrigido: "わたしのなまえはジョンです。",
       alvo: "はじめまして、ジョンさん！",
-      leitura: "hajimemashite, Jon-san! shumi wa nan desu ka?",
+      leitura: "",
+      leitura_kana: "はじめまして、ジョン さん！ しゅみ は なん です か。",
       traducao_pt: "Prazer em conhece-lo, John!",
       explicacao_pt: "Para se apresentar: なまえ (nome) + は + [seu nome] + です.",
       pergunta_alvo: "しゅみはなんですか。",
@@ -490,7 +600,7 @@ Responda SEMPRE com um unico objeto JSON valido, sem texto fora do JSON, sem mar
   "correcao": "comentario curto em portugues do Brasil sobre o erro do aluno; \\"\\" se nao houver erro ou for a primeira fala",
   "corrigido": "a frase do aluno reescrita CORRETA no idioma-alvo (${lang}), escrita nativa; \\"\\" se nao houver o que corrigir",
   "alvo": "a resposta NATURAL do tutor no idioma-alvo (${lang}), reagindo ao que o aluno disse. NAO repita a pergunta aqui",
-  "leitura": ${latin ? '""' : '"romanizacao (romaji) de alvo + pergunta_alvo"'},
+  "leitura": "",${latin ? "" : '\n  "leitura_kana": "a leitura de \\"alvo\\" e \\"pergunta_alvo\\" inteira em HIRAGANA (sem kanji e sem romaji), com um ESPACO entre cada palavra",'}
   "traducao_pt": "traducao de 'alvo' em portugues do Brasil",
   "explicacao_pt": "dica didatica curta em portugues do Brasil (gramatica, uso ou vocabulario)",
   "pergunta_alvo": "uma pergunta NOVA no idioma-alvo (${lang}) para o aluno responder. Deve ser DIFERENTE de 'alvo'",
@@ -508,7 +618,7 @@ Regras OBRIGATORIAS:
 ${
   latin
     ? '- O idioma-alvo usa alfabeto latino: deixe "leitura" como string vazia "".'
-    : '- O idioma-alvo (japones) NAO usa alfabeto latino: preencha "leitura" com a romanizacao (romaji) correta de "alvo" e "pergunta_alvo". Ex.: わたしのなまえ = "watashi no namae".'
+    : '- O idioma-alvo (japones): deixe "leitura" como "" e preencha "leitura_kana" com a leitura COMPLETA de "alvo" e "pergunta_alvo" em HIRAGANA, separando cada palavra por um espaco. Converta TODO kanji para hiragana (ex.: 名前 -> なまえ, 私 -> わたし, 何 -> なに). NAO deixe nenhum kanji nem romaji em "leitura_kana" (o romaji e gerado automaticamente).'
 }
 - Se o aluno escreveu certo (ou e a primeira fala), deixe "correcao" e "corrigido" como "".
 - Adapte a dificuldade ao nivel ${level} e ao modo ${mode}; mantenha as falas curtas e conversacionais.
@@ -519,10 +629,10 @@ ${
 // Normaliza a resposta do tutor: garante strings, evita que "pergunta_alvo"
 // seja identica a "alvo" (o modelo pequeno tende a duplicar) e remove um
 // "corrigido" redundante quando nao ha de fato correcao.
-function sanitizeTutor(parsed) {
+function sanitizeTutor(parsed, language) {
   const t = { ...parsed };
   const norm = (v) => (typeof v === "string" ? v.trim() : "");
-  for (const key of ["correcao", "corrigido", "alvo", "leitura", "traducao_pt", "explicacao_pt", "pergunta_alvo", "pergunta_pt"]) {
+  for (const key of ["correcao", "corrigido", "alvo", "leitura", "leitura_kana", "traducao_pt", "explicacao_pt", "pergunta_alvo", "pergunta_pt"]) {
     t[key] = norm(t[key]);
   }
   // Se a pergunta repete exatamente a fala do tutor, descarta a duplicata:
@@ -536,6 +646,17 @@ function sanitizeTutor(parsed) {
     // mantem corrigido apenas se diferir de alvo (evita eco da propria resposta)
     if (t.corrigido === t.alvo) t.corrigido = "";
   }
+  // Japones: gera o romaji deterministicamente a partir do kana fornecido pelo
+  // modelo (mais confiavel que pedir romaji direto a um modelo pequeno).
+  if (language === "japones") {
+    const fonte = t.leitura_kana || `${t.alvo} ${t.pergunta_alvo}`.trim();
+    const romaji = kanaToRomaji(fonte).trim();
+    const hasKanji = /[㐀-鿿]/.test(romaji); // kanji que nao soube ler
+    // So usa se virou romaji limpo (sem kanji residual). Senao, melhor nao
+    // mostrar leitura do que exibir uma romanizacao quebrada.
+    t.leitura = romaji && /[a-z]/i.test(romaji) && !hasKanji ? romaji : "";
+  }
+  delete t.leitura_kana; // campo interno, nao vai para o front-end
   return t;
 }
 
@@ -575,7 +696,7 @@ async function tutorReply(req, res) {
       return;
     }
 
-    sendJson(res, 200, { tutor: sanitizeTutor(parsed) });
+    sendJson(res, 200, { tutor: sanitizeTutor(parsed, language) });
   } catch (error) {
     sendJson(res, 500, { error: "Nao foi possivel falar com o tutor.", detail: error.message });
   }
