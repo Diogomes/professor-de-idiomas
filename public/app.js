@@ -240,6 +240,26 @@ function addTutorMessage(fields) {
 
   const hasAlvo = f.alvo && f.alvo.trim();
   const hasPergunta = f.pergunta_alvo && f.pergunta_alvo.trim();
+  const hasCorrecao = (f.correcao && f.correcao.trim()) || (f.corrigido && f.corrigido.trim());
+
+  // Bloco de correcao: o que o aluno errou (PT) + a forma correta no idioma-alvo
+  // (com audio). Aparece primeiro porque e o feedback mais importante.
+  if (hasCorrecao) {
+    const corr = document.createElement("div");
+    corr.className = "tutor-correction";
+    let html = `<span class="tt-label">✏️ Correcao</span>`;
+    if (f.correcao && f.correcao.trim()) {
+      html += `<p class="tc-note">${escapeHtml(f.correcao)}</p>`;
+    }
+    if (f.corrigido && f.corrigido.trim()) {
+      html += `<p class="tc-fixed" lang="target">${escapeHtml(f.corrigido)}</p>`;
+    }
+    corr.innerHTML = html;
+    if (f.corrigido && f.corrigido.trim()) {
+      corr.appendChild(buildAudioActions([f.corrigido]));
+    }
+    el.appendChild(corr);
+  }
 
   // Bloco da frase no idioma-alvo
   if (hasAlvo) {
@@ -285,7 +305,7 @@ function addTutorMessage(fields) {
   }
 
   // Sem nenhum campo reconhecido: mostra algo para nao ficar vazio.
-  if (!el.querySelector(".tutor-target, .tutor-pt, .tutor-explain")) {
+  if (!el.querySelector(".tutor-target, .tutor-pt, .tutor-explain, .tutor-correction")) {
     const body = document.createElement("div");
     body.className = "message-body";
     body.textContent = "(o tutor nao retornou conteudo legivel)";
@@ -327,8 +347,11 @@ async function sendMessage(content) {
     const recon = [f0(fields)].filter(Boolean).join("");
     history.push({ role: "assistant", content: recon || "(sem conteudo)" });
 
-    // Modo oral: o tutor fala a resposta no idioma-alvo automaticamente.
-    if (convMode === "oral") speakSequence([fields.alvo, fields.pergunta_alvo]);
+    // Modo oral: o tutor fala (no idioma-alvo) a forma corrigida, a resposta
+    // e a pergunta, em sequencia. Os campos em PT nunca sao falados.
+    if (convMode === "oral") {
+      speakSequence([fields.corrigido, fields.alvo, fields.pergunta_alvo]);
+    }
     statusEl.textContent = "Pronto";
   } catch (error) {
     statusEl.textContent = "Erro";
@@ -342,7 +365,7 @@ async function sendMessage(content) {
 
 // Reconstrucao textual de um turno do tutor para guardar no historico.
 function f0(f) {
-  return [f.alvo, f.leitura, f.traducao_pt, f.explicacao_pt, f.pergunta_alvo, f.pergunta_pt]
+  return [f.correcao, f.corrigido, f.alvo, f.leitura, f.traducao_pt, f.explicacao_pt, f.pergunta_alvo, f.pergunta_pt]
     .map((x) => (x || "").trim())
     .filter(Boolean)
     .join(" | ");

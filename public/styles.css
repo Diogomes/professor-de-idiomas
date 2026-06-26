@@ -596,6 +596,29 @@ h4 {
   border-left-color: #43e08a;
   background: rgba(67, 224, 138, 0.1);
 }
+/* Bloco de correcao: feedback do erro do aluno (tom de alerta ambar). */
+.tutor-correction {
+  border: 1px solid rgba(255, 184, 77, 0.4);
+  border-left: 3px solid #ffb84d;
+  border-radius: 8px;
+  background: rgba(255, 184, 77, 0.1);
+  padding: 12px 14px;
+}
+.tutor-correction .tt-label {
+  color: #ffce85;
+}
+.tc-note {
+  color: #ffe6c2;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.tc-fixed {
+  margin-top: 6px;
+  font-size: 20px;
+  line-height: 1.4;
+  color: #fff6ea;
+  font-weight: 600;
+}
 .tt-label {
   display: inline-block;
   font-size: 10px;
