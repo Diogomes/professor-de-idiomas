@@ -1,0 +1,47 @@
+name: Deploy GitHub Pages
+
+# Publica a interface (pasta public/) no GitHub Pages. Nessa versao a IA roda
+# 100% no navegador (WebLLM/WebGPU), entao nao ha servidor nem Ollama: e so
+# conteudo estatico. Acesse pela URL que aparece no final do job (Environment
+# "github-pages"). Para a URL ser diogomes.github.io/idiomas, renomeie o repo
+# para "idiomas" (Settings > General > Repository name).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "public/**"
+      - ".github/workflows/deploy-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Uma publicacao por vez; cancela execucoes antigas em andamento.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Pages
+        uses: actions/configure-pages@v5
+
+      - name: Enviar artefato (pasta public/)
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+      - name: Publicar no Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
